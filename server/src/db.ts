@@ -77,6 +77,9 @@ const MIGRATIONS: string[] = [
   `CREATE TABLE IF NOT EXISTS research (
      id TEXT PRIMARY KEY, query TEXT NOT NULL, deep INTEGER NOT NULL DEFAULT 0, answer TEXT NOT NULL DEFAULT '',
      sources TEXT NOT NULL DEFAULT '[]', steps TEXT NOT NULL DEFAULT '[]', followups TEXT NOT NULL DEFAULT '[]', model TEXT, created_at INTEGER NOT NULL);`,
+  `ALTER TABLE approvals ADD COLUMN answer TEXT;
+   ALTER TABLE agent_runs ADD COLUMN unattended INTEGER NOT NULL DEFAULT 0;
+   CREATE INDEX IF NOT EXISTS idx_steps_run ON agent_steps(run_id, n);`,
 ];
 
 export function openDb(file?: string): DB {

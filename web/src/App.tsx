@@ -6,6 +6,8 @@ import { Research } from "./pages/Research";
 import { Canvas } from "./pages/Canvas";
 import { Notebook } from "./pages/Notebook";
 import { Studio } from "./pages/Studio";
+import { Agent } from "./pages/Agent";
+import { Inbox } from "./pages/Inbox";
 import { Code } from "./pages/Code";
 import { Gems } from "./pages/Gems";
 import { RouterPage } from "./pages/Router";
@@ -21,6 +23,8 @@ export default function App() {
         <Route path="/canvas" element={<Canvas />} />
         <Route path="/notebook" element={<Notebook />} />
         <Route path="/studio" element={<Studio />} />
+        <Route path="/agent" element={<Agent />} />
+        <Route path="/inbox" element={<Inbox />} />
         <Route path="/code" element={<Code />} />
         <Route path="/gems" element={<Gems />} />
         <Route path="/router" element={<RouterPage />} />

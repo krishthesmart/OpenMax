@@ -41,3 +41,12 @@ Judgement calls made while building, newest at the bottom.
     output). Cooling-down providers and full per-minute windows are skipped, not waited on.
 16. **Dead refs** (failed last "Test providers") are moved to the end of a lane rather than removed, so a transient failure
     never hard-disables a model.
+17. **Agent hard blocks vs approvals.** The agent can never type passwords, payment card numbers or government ID numbers (hard block; no approval offered, the user does
+    those themselves). Personal data (email, phone, address, DOB), submitting/Enter-in-form, destructive or publishing clicks, payment buttons, email sending and file
+    deletes all require a human approval click. Gating lives in `modules/agent/gates.ts` (pure) and is applied by `executeTool` before any side effect.
+18. **Unattended (scheduled) runs** never block: `send_email` and `file_delete` are queued as *deferred* approvals in the Inbox and execute only when the user approves
+    later; browser actions that need approval are refused ("run it interactively"). Interactive runs wait on the approval.
+19. **Chromium discovery.** Playwright 1.65 wants a newer Chromium than is installed here; `findChromium()` uses any installed Playwright Chromium (or
+    PLAYWRIGHT_CHROMIUM_PATH). The agent browser always uses an isolated profile in `data/browser-profile`, never the user's Chrome.
+20. **ffmpeg may be unusable** (this Mac has an Intel-only build): audio overviews fall back to pure-JS WAV concatenation (+ `afconvert` / `say` WAV output); chapters
+    are then returned as data instead of embedded metadata.

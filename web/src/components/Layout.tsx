@@ -41,6 +41,7 @@ export function ModePicker() {
 
 export function Layout() {
   const { sidebarOpen, think } = usePrefs();
+  const counts = useFetch<any>("/api/inbox/count", [], 5000);
   const [help, setHelp] = useState(false);
   useHotkeys({
     "mod+b": () => setPrefs({ sidebarOpen: !sidebarOpen }),
@@ -58,7 +59,7 @@ export function Layout() {
           <nav className="flex-1 overflow-y-auto px-2 pb-3">
             {NAV.map((n) => (
               <NavLink key={n.to} to={n.to} end={n.to === "/"} className={({ isActive }) => `mb-0.5 flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] ${isActive ? "bg-accent/15 text-accent" : "text-dim hover:bg-panel2 hover:text-ink"}`}>
-                <span className="w-4 text-center">{n.icon}</span>{n.label}
+                <span className="w-4 text-center">{n.icon}</span>{n.label}{n.to === "/inbox" && counts.data && (counts.data.unread + counts.data.pendingApprovals > 0) && <span className={`ml-auto rounded-full px-1.5 text-[10px] font-semibold ${counts.data.pendingApprovals ? "bg-warn text-black" : "bg-accent text-black"}`}>{counts.data.pendingApprovals || counts.data.unread}</span>}
               </NavLink>
             ))}
           </nav>

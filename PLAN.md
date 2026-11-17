@@ -26,7 +26,7 @@ Gate for every phase: `npm run typecheck && npm test && npm run build` pass, the
       ffmpeg MP3 + chapters), study guide/FAQ/timeline, quiz + flashcards (SM-2), mind map, slides (.pptx)
 - [x] 8. Canvas: doc/code editor beside chat, structured patch ops, inline suggestions, length/tone, versions,
       restore, live HTML/React preview
-- [ ] 9. Agent: tool loop (≤25 steps) with web_search, fetch_page, Playwright (isolated profile), sandboxed files,
+- [x] 9. Agent: tool loop (≤25 steps) with web_search, fetch_page, Playwright (isolated profile), sandboxed files,
       SMTP, ICS calendar, memory; approval gates enforced in code; action log + screenshots; cron schedules;
       Inbox
 - [ ] 10. Async code agent: repo + instruction → sandbox clone → plan approval → edits → tests (timeout) →

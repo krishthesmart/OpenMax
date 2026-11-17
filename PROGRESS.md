@@ -54,5 +54,14 @@ Use Node 22: `export PATH=~/.nvm/versions/node/v22.22.2/bin:$PATH` (native modul
   Monaco editor + live sandboxed preview for HTML/React/SVG/Markdown, "Open in Canvas" from chat artifacts.
 - Verified: typecheck, 160 tests, build.
 
+## Phase 9 — done
+- Agent: tool loop (≤25 steps; native tool calling with automatic JSON-action fallback; repeated-call guard), tools web_search, fetch_page, isolated Playwright browser
+  (numbered element refs, screenshot per browser step), sandboxed files, SMTP email, ICS calendar, memory, ask_user, finish. Approval gates enforced in code
+  (`gates.ts` + executor ordering validate → precheck → inspect → GATE → wait for human → run); hard blocks for passwords/cards/IDs; full step log with screenshots;
+  card numbers redacted from logs/approvals/files. node-cron schedules (persisted), unattended runs with deferred approvals, Inbox with unread/pending badge.
+- Verified: typecheck, 199 tests (gate matrix, executor enforcement with spies, loop, JSON fallback, deferred approvals, scheduler, ICS), build, and the real Playwright
+  driver against a local test page.
+- Not verified live: SMTP delivery, cron firing on a real clock.
+
 ## Known gaps
 (none yet)
