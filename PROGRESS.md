@@ -27,5 +27,10 @@ Use Node 22: `export PATH=~/.nvm/versions/node/v22.22.2/bin:$PATH` (native modul
   (invalid [n] stripped) → follow-ups; persisted history; live step log + source cards UI.
 - Verified: typecheck, 97 tests (stub search/pages), build. Not verified live against real SearXNG.
 
+## Phase 5 — done
+- Code: workspace tree with realpath/symlink/`..`/absolute/NUL escape protection, size/binary guards, confirmed-only delete, Monaco bundled locally (no CDN),
+  explain/fix/refactor/tests/docs/custom → ```file block → Monaco diff with Apply/Reject, local-only toggle.
+- Verified: typecheck, 113 tests, build, browser check (Monaco loads from local bundle). The async code agent (Jules-style) is Phase 10.
+
 ## Known gaps
 (none yet)
