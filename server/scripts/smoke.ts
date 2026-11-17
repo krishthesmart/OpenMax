@@ -165,16 +165,27 @@ await check("studio: video is refused with an explanation when no video backend 
   throw new Error("video job was accepted without any video backend");
 });
 
-await check("speech: real text-to-speech produces audio; speech-to-text explains setup when unconfigured", async () => {
-  const r = await fetch(base + "/api/tts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text: "OpenMax speech test." }) });
+await check("storybook: real story from the model, 10 real illustrations, a real PDF", async () => {
+  const info = await http("GET", "/api/studio/backends"); if (!info.backends.find((b: any) => b.default)?.status.ok) return "no image backend configured; skipped";
+  const { id } = await http("POST", "/api/studio/story", { premise: "A shy mouse named Pip who wants to visit the moon", style: "soft watercolor picture book" });
+  const s = await until(async () => { const r = (await http("GET", `/api/studio/story/${id}`)).story; if (r.status === "error") throw new Error(r.error); return r.status === "done" ? r : undefined; }, 600000, "storybook");
+  assert(s.pages.length >= 3 && s.pages.filter((p: any) => p.image).length >= Math.ceil(s.pages.length * 0.8), `too few illustrations: ${s.pages.filter((p: any) => p.image).length}/${s.pages.length}`);
+  const pdf = await fetch(`${base}/api/studio/story/${id}/pdf`); const buf = Buffer.from(await pdf.arrayBuffer()); assert(pdf.ok && buf.subarray(0, 4).toString() === "%PDF" && buf.length > 50000, `bad PDF (${buf.length} bytes)`);
+  return `"${s.title}", ${s.pages.length} pages, PDF ${(buf.length / 1024).toFixed(0)} KB`;
+}, { soft: true });
+
+await check("speech: real text-to-speech, then real speech-to-text of that audio", async () => {
+  const phrase = "OpenMax can transcribe speech with a hosted model.";
+  const r = await fetch(base + "/api/tts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text: phrase }) });
   if (!r.ok) { const j: any = await r.json(); throw new Error(`${j.error} ${j.fix ?? ""}`); }
   const buf = Buffer.from(await r.arrayBuffer()); assert(buf.length > 4000, `audio too small (${buf.length} bytes)`);
-  const backend = r.headers.get("x-tts-backend");
-  const fd = new FormData(); fd.append("file", new Blob([buf], { type: "audio/wav" }), "t.wav");
+  const tts = r.headers.get("x-tts-backend");
+  const fd = new FormData(); fd.append("file", new Blob([buf], { type: r.headers.get("content-type") ?? "audio/wav" }), "t.wav");
   const stt = await fetch(base + "/api/stt", { method: "POST", body: fd });
-  if (stt.ok) return `tts=${backend}, stt transcribed: "${(await stt.json() as any).text}"`;
-  const j: any = await stt.json(); assert(/speech-to-text|transcription/i.test(j.error) && j.fix, "STT failure must explain how to enable it");
-  return `tts=${backend} (${(buf.length / 1024).toFixed(0)} KB), stt: ${j.error.slice(0, 50)}`;
+  if (!stt.ok) { const j: any = await stt.json(); assert(/speech-to-text|transcription|speech recognition/i.test(j.error) && j.fix, `STT must explain how to enable it: ${JSON.stringify(j)}`); return `tts=${tts}; stt unavailable: ${j.error.slice(0, 60)}`; }
+  const out = await stt.json() as any; const want = phrase.toLowerCase().replace(/[^a-z ]/g, "").split(" "), got = new Set(String(out.text).toLowerCase().replace(/[^a-z ]/g, "").split(/\s+/));
+  const hit = want.filter((w) => got.has(w) || got.has(w.replace("openmax", "open"))).length; assert(hit / want.length >= 0.6, `transcript does not match what was spoken: "${out.text}"`);
+  return `tts=${tts}, stt=${out.backend}: "${out.text}"`;
 });
 
 await check("notebook: real retrieval → grounded chat with citation offsets → real audio overview", async () => {

@@ -1,23 +1,32 @@
 import { api } from "./api";
 
+/** Records microphone audio as 16 kHz mono WAV (what speech-recognition services accept; browsers' default WebM/Opus is not). */
 export class Recorder {
-  private rec?: MediaRecorder; private chunks: Blob[] = []; private stream?: MediaStream;
+  private ctx?: AudioContext; private stream?: MediaStream; private node?: ScriptProcessorNode; private src?: MediaStreamAudioSourceNode; private chunks: Float32Array[] = [];
   async start() {
-    this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    this.chunks = []; this.rec = new MediaRecorder(this.stream);
-    this.rec.ondataavailable = (e) => e.data.size && this.chunks.push(e.data);
-    this.rec.start();
+    this.stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
+    this.ctx = new AudioContext(); this.chunks = [];
+    this.src = this.ctx.createMediaStreamSource(this.stream);
+    this.node = this.ctx.createScriptProcessor(4096, 1, 1);
+    this.node.onaudioprocess = (e) => { this.chunks.push(new Float32Array(e.inputBuffer.getChannelData(0))); };
+    this.src.connect(this.node); this.node.connect(this.ctx.destination);
   }
-  stop(): Promise<Blob> {
-    return new Promise((res) => {
-      if (!this.rec) return res(new Blob());
-      this.rec.onstop = () => { this.stream?.getTracks().forEach((t) => t.stop()); res(new Blob(this.chunks, { type: this.rec!.mimeType || "audio/webm" })); };
-      this.rec.stop();
-    });
+  async stop(): Promise<Blob> {
+    const rate = this.ctx?.sampleRate ?? 48000;
+    this.node?.disconnect(); this.src?.disconnect(); this.stream?.getTracks().forEach((t) => t.stop()); await this.ctx?.close();
+    const total = this.chunks.reduce((n, c) => n + c.length, 0), all = new Float32Array(total); let o = 0;
+    for (const c of this.chunks) { all.set(c, o); o += c.length; }
+    const ratio = rate / 16000, outLen = Math.floor(total / ratio), pcm = new Int16Array(outLen);
+    for (let i = 0; i < outLen; i++) { const p = i * ratio, i0 = Math.floor(p), i1 = Math.min(total - 1, i0 + 1), f = p - i0; pcm[i] = Math.max(-32768, Math.min(32767, Math.round((all[i0]! * (1 - f) + all[i1]! * f) * 32767))); }
+    const buf = new ArrayBuffer(44 + pcm.length * 2), v = new DataView(buf), w = (off: number, t: string) => [...t].forEach((c, i) => v.setUint8(off + i, c.charCodeAt(0)));
+    w(0, "RIFF"); v.setUint32(4, 36 + pcm.length * 2, true); w(8, "WAVE"); w(12, "fmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, 16000, true); v.setUint32(28, 32000, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, pcm.length * 2, true);
+    new Int16Array(buf, 44).set(pcm);
+    return new Blob([buf], { type: "audio/wav" });
   }
 }
 export async function transcribeBlob(b: Blob): Promise<string> {
-  const f = new FormData(); f.append("file", b, "speech.webm");
+  const f = new FormData(); f.append("file", b, "speech.wav");
   return (await api.upload("/api/stt", f)).text as string;
 }
 

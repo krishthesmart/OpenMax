@@ -6,10 +6,11 @@ import { freshEnv } from "./helpers.js";
 import { setConfigForTest } from "../src/config.js";
 import { composePrompt, PRESETS, dimsFor, enqueue, getJob, backendsInfo, deleteJob, listJobs, mediaDir, validateParams } from "../src/modules/media/index.js";
 import { fillWorkflow, comfyBackend } from "../src/modules/media/comfy.js";
+import { buildBody, snapSize } from "../src/modules/media/nvidiaImage.js";
 import { falBackend } from "../src/modules/media/fal.js";
 import { GpuScheduler } from "../src/modules/media/scheduler.js";
 import { buildPdf, getStory, pagePrompt, startStory, validateStory } from "../src/modules/media/story.js";
-import { setStubHandler, comfy, pngBuffer } from "./fake.js";
+import { setStubHandler, comfy, pngBuffer, nvidiaImage } from "./fake.js";
 import { saveAttachment } from "../src/modules/attachments.js";
 
 const waitFor = async (f: () => boolean, ms = 4000) => { const t = Date.now(); while (!f()) { if (Date.now() - t > ms) throw new Error("timeout"); await new Promise((r) => setTimeout(r, 15)); } };
@@ -46,12 +47,35 @@ describe("capabilities (grey out unsupported ops)", () => {
     expect(ops.i2v.supported).toBe(false); expect(ops.i2v.reason).toMatch(/workflows\/i2v\.json/);
     const g = info.backends.find((b) => b.id === "google-image")!; expect(g.ops.t2v.supported).toBe(false); expect(g.ops.t2v.reason).toMatch(/stills/);
   });
-  it("auto picks ComfyUI when it is running, else Gemini image when a key is set, else reports ComfyUI as unreachable", async () => {
+  it("auto picks ComfyUI when running, else NVIDIA FLUX (NVIDIA key), else Gemini image (Gemini key), else reports ComfyUI as unreachable", async () => {
     freshEnv({ DATA_DIR: tmpData, MEDIA_PROVIDER: "auto", GEMINI_API_KEY: "" });
     expect((await backendsInfo()).backends.find((b) => b.default)!.id).toBe("comfy");
-    comfy.up = false; const down = (await backendsInfo()).backends.find((b) => b.default)!; expect(down.id).toBe("comfy"); expect(down.status.ok).toBe(false); expect(down.status.detail).toMatch(/503|not reachable/);
-    freshEnv({ DATA_DIR: tmpData, MEDIA_PROVIDER: "auto", GEMINI_API_KEY: "k" }); comfy.up = false;
+    comfy.up = false; expect((await backendsInfo()).backends.find((b) => b.default)!.id).toBe("nvidia-image");
+    freshEnv({ DATA_DIR: tmpData, MEDIA_PROVIDER: "auto", NVIDIA_API_KEY: "", GEMINI_API_KEY: "k" }); comfy.up = false;
     expect((await backendsInfo()).backends.find((b) => b.default)!.id).toBe("google-image");
+    freshEnv({ DATA_DIR: tmpData, MEDIA_PROVIDER: "auto", NVIDIA_API_KEY: "", GEMINI_API_KEY: "" }); comfy.up = false;
+    const down = (await backendsInfo()).backends.find((b) => b.default)!; expect(down.id).toBe("comfy"); expect(down.status.ok).toBe(false); expect(down.status.detail).toMatch(/503|not reachable/);
+  });
+  it("NVIDIA FLUX backend: stills only, sizes snapped to the API's allowed set, no seed sent, real image saved", async () => {
+    freshEnv({ DATA_DIR: tmpData, MEDIA_PROVIDER: "nvidia-image" });
+    const ops = (await backendsInfo()).backends.find((b) => b.id === "nvidia-image")!.ops;
+    expect(ops.t2i.supported).toBe(true); expect(ops.t2v.reason).toMatch(/stills/); expect(ops.edit.reason).toMatch(/ComfyUI|Gemini/);
+    expect(snapSize(512)).toBe(768); expect(snapSize(1536)).toBe(1344); expect(snapSize(1000)).toBe(1024);
+    expect(buildBody("black-forest-labs/flux.1-schnell", "x", 1024, 1024)).toEqual({ prompt: "x", width: 1024, height: 1024, steps: 4 });
+    expect(buildBody("black-forest-labs/flux.1-dev", "x", 1024, 1024)).toMatchObject({ mode: "base", cfg_scale: 3.5, steps: 20 });
+    const j = enqueue({ op: "t2i", prompt: "a lighthouse", aspect: "21:9", count: 2, presets: ["cinematic"], seed: 9, negative: "blurry" });
+    await waitFor(() => getJob(j.id)!.status === "done", 8000);
+    const done = getJob(j.id)!; expect(done.outputs).toHaveLength(2); expect(fs.readFileSync(done.outputs[0]!.file).subarray(1, 4).toString()).toBe("PNG");
+    expect(nvidiaImage.posted).toHaveLength(2); const sent = nvidiaImage.posted[0]!;
+    expect(sent.model).toBe("black-forest-labs/flux.1-schnell"); expect(sent.auth).toBe("Bearer k"); expect("seed" in sent.body).toBe(false);
+    expect(sent.body.prompt).toContain("a lighthouse"); expect(sent.body.prompt).toContain("Avoid: blurry"); expect([768, 832, 896, 960, 1024, 1088, 1152, 1216, 1280, 1344]).toContain(sent.body.width);
+  });
+  it("NVIDIA image errors are explained: filtered prompt, rate limit, rejected key", async () => {
+    freshEnv({ DATA_DIR: tmpData, MEDIA_PROVIDER: "nvidia-image" });
+    for (const [tag, re] of [["__filtered__", /filtered/], ["__quota__", /quota|rate limit/], ["__auth__", /rejected the API key/]] as const) {
+      const j = enqueue({ op: "t2i", prompt: `x ${tag}`, aspect: "1:1", count: 1, presets: [] });
+      await waitFor(() => getJob(j.id)!.status === "error", 8000); expect(getJob(j.id)!.error).toMatch(re);
+    }
   });
   it("fal is hidden without ENABLE_PAID and has no v2v", async () => {
     expect((await backendsInfo()).backends.some((b) => b.id === "fal")).toBe(false);

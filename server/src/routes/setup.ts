@@ -26,7 +26,7 @@ export function validateEnvUpdates(u: Record<string, string>): Record<string, st
     if (/^(ENABLE_PAID|ALLOW_FREE_CLOUD)$/.test(k) && !/^(true|false)$/.test(val)) throw new HttpError(400, `${k} must be true or false.`);
     if (/^(MONTHLY_BUDGET_USD|GPU_WATTS|USD_PER_KWH)$/.test(k) && !(Number(val) >= 0)) throw new HttpError(400, `${k} must be a non-negative number.`);
     if (k === "SEARCH_BACKEND" && !/^(auto|searxng|brave|duckduckgo|wikipedia)$/.test(val)) throw new HttpError(400, "SEARCH_BACKEND must be auto, searxng, brave, duckduckgo or wikipedia.");
-    if (k === "MEDIA_PROVIDER" && !/^(auto|comfy|fal|google-image)$/.test(val)) throw new HttpError(400, "MEDIA_PROVIDER must be auto, comfy, fal or google-image.");
+    if (k === "MEDIA_PROVIDER" && !/^(auto|comfy|fal|google-image|nvidia-image)$/.test(val)) throw new HttpError(400, "MEDIA_PROVIDER must be auto, comfy, fal, google-image or nvidia-image.");
     out[k] = val;
   }
   return out;

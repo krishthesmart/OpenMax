@@ -6,6 +6,7 @@ import { getAttachment } from "../attachments.js";
 import { comfyBackend } from "./comfy.js";
 import { falBackend } from "./fal.js";
 import { googleImageBackend, pickGoogleImageModel } from "./googleImage.js";
+import { nvidiaImageBackend } from "./nvidiaImage.js";
 import { composePrompt } from "./presets.js";
 import { gpu } from "./scheduler.js";
 import { ASPECTS, dimsFor, OPS, SUBOPS, type JobParams, type MediaBackend, type MediaOutput, type Op, type OpSupport, type RunCtx } from "./types.js";
@@ -19,6 +20,7 @@ export const mediaDir = () => { const d = dataPath("media"); fs.mkdirSync(d, { r
 /** Backends visible right now. Paid (fal) only with ENABLE_PAID; Gemini image only when a Gemini key exists. */
 export function listBackends(): MediaBackend[] {
   const out: MediaBackend[] = [comfyBackend];
+  if (cfg.NVIDIA_API_KEY) out.push(nvidiaImageBackend);
   if (cfg.GEMINI_API_KEY) out.push(googleImageBackend);
   if (cfg.ENABLE_PAID) out.push(falBackend);
   return out;
@@ -28,11 +30,12 @@ export const getBackend = (id: string) => listBackends().find((b) => b.id === id
 let comfyUp = false;
 /** Re-check which local services are reachable (called before choosing a default backend). */
 export async function refreshReachability() { comfyUp = (await comfyBackend.status()).ok && comfyBackend.ops().t2i.supported; }
-/** MEDIA_PROVIDER=auto: ComfyUI when it is running, else Gemini image when a key is set. With neither, ComfyUI is reported as the (unreachable) default so the UI can say how to set it up. */
+/** MEDIA_PROVIDER=auto: ComfyUI when it is running, else NVIDIA FLUX (NVIDIA key), else Gemini image (Gemini key). With neither, ComfyUI is reported as the (unreachable) default so the UI can say how to set it up. */
 export const defaultBackendId = () => {
   const want = cfg.MEDIA_PROVIDER;
   if (want !== "auto" && getBackend(want)) return want;
   if (comfyUp) return "comfy";
+  if (cfg.NVIDIA_API_KEY) return "nvidia-image";
   if (cfg.GEMINI_API_KEY && pickGoogleImageModel()) return "google-image";
   return "comfy";
 };

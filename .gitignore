@@ -16,3 +16,4 @@ web/public/vendor/
 comfy-storage/
 workspace/
 data/uploads/
+.services/

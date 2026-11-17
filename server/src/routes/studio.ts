@@ -23,7 +23,7 @@ export function registerStudio(app: FastifyInstance) {
     await refreshReachability();
     const be = getBackend(b.backend ?? defaultBackendId());
     const st = be ? await be.status() : undefined;
-    if (be && !st!.ok) return reply.code(503).send({ error: `${be.label} is not available: ${st!.detail ?? "unreachable"}`, fix: be.id === "comfy" && !cfg.GEMINI_API_KEY ? NO_IMAGE_BACKEND : st!.detail });
+    if (be && !st!.ok) return reply.code(503).send({ error: `${be.label} is not available: ${st!.detail ?? "unreachable"}`, fix: be.id === "comfy" && !cfg.GEMINI_API_KEY && !cfg.NVIDIA_API_KEY ? NO_IMAGE_BACKEND : st!.detail });
     try { return { job: enqueue(b) }; }
     catch (e: any) { return reply.code(e.status ?? 400).send({ error: e.message, fix: e.fix }); }
   });
@@ -44,7 +44,7 @@ export function registerStudio(app: FastifyInstance) {
   app.post("/api/studio/story", async (req, reply) => {
     const b = z.object({ premise: z.string().min(5), style: z.string().optional(), backend: z.string().optional() }).parse(req.body);
     await refreshReachability(); const be = getBackend(b.backend ?? defaultBackendId()); const st = be ? await be.status() : undefined;
-    if (be && !st!.ok) return reply.code(503).send({ error: `${be.label} is not available: ${st!.detail ?? "unreachable"}`, fix: be.id === "comfy" && !cfg.GEMINI_API_KEY ? NO_IMAGE_BACKEND : st!.detail });
+    if (be && !st!.ok) return reply.code(503).send({ error: `${be.label} is not available: ${st!.detail ?? "unreachable"}`, fix: be.id === "comfy" && !cfg.GEMINI_API_KEY && !cfg.NVIDIA_API_KEY ? NO_IMAGE_BACKEND : st!.detail });
     return { id: startStory(b) };
   });
   app.get("/api/studio/story", async () => ({ stories: listStories() }));

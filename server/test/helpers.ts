@@ -8,7 +8,7 @@ import { resetLimits } from "../src/providers/limits.js";
 import { stubReset } from "./fake.js";
 
 export const testRouterConfig = () => RouterConfigSchema.parse({
-  classifier: ["groq:fast", "ollama:small"], judge: ["google:judge"], titles: ["groq:fast"], embeddings: ["nvidia:emb"], toolProbe: ["nvidia:tooly"],
+  classifier: ["groq:fast", "ollama:small"], judge: ["google:judge"], titles: ["groq:fast"], embeddings: ["nvidia:emb"], stt: ["groq:whisper"], toolProbe: ["nvidia:tooly"],
   lanes: {
     quick: ["groq:fast", "ollama:small"], code: ["openrouter:coder:free", "nvidia:big", "groq:large", "ollama:small"],
     reasoning: ["nvidia:big", "google:flash", "ollama:small"], research: ["google:flash", "nvidia:big"],

@@ -8,6 +8,7 @@ import { getRouterConfig } from "../router/config.js";
 import { splitRef } from "../providers/types.js";
 import { getProvider, providerEnabled } from "../providers/registry.js";
 import { recordUsage } from "../router/usage.js";
+import { rivaConfigured, rivaTranscribe } from "./riva.js";
 
 const exec = promisify(execFile);
 const tmp = (ext: string) => path.join(os.tmpdir(), `om-${Date.now()}-${Math.random().toString(36).slice(2, 7)}${ext}`);
@@ -38,7 +39,13 @@ export async function transcribe(buf: Buffer, filename = "audio.webm", mime = "a
     recordUsage({ ref: sttRef, tokensIn: 0, tokensOut: 0, ms: Date.now() - t0, kind: "stt" });
     return { text: String(j.text ?? "").trim(), backend: sttRef };
   }
-  throw Object.assign(new Error("No speech-to-text backend is configured."), { fix: "Set GROQ_API_KEY (hosted Whisper) or WHISPER_MODEL + WHISPER_BIN (whisper.cpp), and install ffmpeg." });
+  if (rivaConfigured()) {
+    const t0 = Date.now();
+    const text = await rivaTranscribe(buf, filename, mime);
+    recordUsage({ ref: "nvidia:riva-parakeet", tokensIn: 0, tokensOut: 0, ms: Date.now() - t0, kind: "stt" });
+    return { text, backend: "nvidia-riva" };
+  }
+  throw Object.assign(new Error("No speech-to-text backend is configured."), { fix: "Set NVIDIA_API_KEY (hosted Riva/Parakeet) or GROQ_API_KEY (hosted Whisper), or WHISPER_MODEL + WHISPER_BIN (whisper.cpp)." });
 }
 
 // ───────── Text to speech ─────────
@@ -74,4 +81,11 @@ export async function synthesize(text: string, voice: "host_a" | "host_b" = "hos
     return { audio, mime: "audio/wav", backend };
   }
   throw Object.assign(new Error("No text-to-speech engine is available."), { fix: "On macOS the built-in `say` voice works automatically. Elsewhere install Piper (set PIPER_BIN and PIPER_MODEL) or run a Kokoro server (KOKORO_URL)." });
+}
+
+export async function sttBackend(): Promise<string | null> {
+  if (cfg.WHISPER_MODEL && (await has(cfg.WHISPER_BIN))) return "whisper.cpp";
+  const g = getRouterConfig().stt.find((r) => { const p = getProvider(splitRef(r).provider); return p && providerEnabled(p); });
+  if (g) return g;
+  return rivaConfigured() ? "nvidia-riva" : null;
 }

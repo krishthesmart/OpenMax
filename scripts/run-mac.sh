@@ -16,7 +16,14 @@ node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 22 ? 0 : 1)
 if command -v ollama >/dev/null 2>&1; then
   curl -fsS http://127.0.0.1:11434/api/tags >/dev/null 2>&1 || { echo "Starting Ollama…"; (ollama serve >/tmp/ollama.log 2>&1 &) ; sleep 2; }
 else
-  echo "Ollama not found: local models and the private fallback are unavailable. Install from https://ollama.com"
+  echo "Ollama not found (optional): only needed if you want private/local-only chats. OpenMax runs on your cloud API keys without it."
+fi
+
+# Web search: start the native SearXNG (installed by ./scripts/run-searxng.sh install) if it is not already running
+if [ -d .services/searxng/searx ] && ! curl -fsS http://127.0.0.1:8080/healthz >/dev/null 2>&1; then
+  echo "Starting SearXNG…"; (nohup ./scripts/run-searxng.sh >/tmp/searxng.log 2>&1 &); sleep 4
+elif [ ! -d .services/searxng/searx ]; then
+  echo "Tip: ./scripts/run-searxng.sh install   # real general web search without Docker (Python 3.11+)"
 fi
 
 # Agent browser: Playwright uses an installed Chromium; install one once if none exists

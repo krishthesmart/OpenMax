@@ -8,6 +8,7 @@ import { detectHardware, loadedLocalModels, tierFor } from "../hardware.js";
 import { getMcpStatuses } from "../modules/mcpState.js";
 import { getRouterConfig } from "../router/config.js";
 import { mediaStatus } from "../modules/mediaStatus.js";
+import { sttBackend, ttsBackend } from "../modules/speech.js";
 import { freeCaps } from "../modules/meter.js";
 import { budgetState } from "../router/usage.js";
 
@@ -22,11 +23,11 @@ export async function healthPayload() {
       cooldownSec: s.cooldownSec, count429: s.count429, capWarn: !!cap?.warn, capPct: Math.max(cap?.requestPct ?? 0, cap?.tokenPct ?? 0) || undefined, models: (getCatalog()[p.id] ?? []).length, fix: providerEnabled(p) ? undefined : p.fixHint,
     };
   });
-  const [search, local, media] = await Promise.all([searchStatus(), loadedLocalModels(), mediaStatus()]);
+  const [search, local, media, stt, tts] = await Promise.all([searchStatus(), loadedLocalModels(), mediaStatus(), sttBackend(), ttsBackend()]);
   const hw = detectHardware();
   return {
     ok: true, version: "0.1.0", paidEnabled: cfg.ENABLE_PAID, freeCloud: cfg.ALLOW_FREE_CLOUD,
-    providers, search, media, gpu: hw.gpu, hardware: { ...hw, recommended: tierFor(hw.memoryGb) },
+    providers, search, media, speech: { stt, tts }, gpu: hw.gpu, hardware: { ...hw, recommended: tierFor(hw.memoryGb) },
     localModels: local, mcp: getMcpStatuses(), lastTest: lastTest?.at ?? null,
     lanes: Object.keys(getRouterConfig().lanes).length, budget: cfg.ENABLE_PAID ? budgetState() : null,
   };

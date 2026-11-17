@@ -110,6 +110,13 @@ Requirement: no mock, simulation, placeholder or demo mode anywhere; everything 
 - Fixed: embedding/STT refs were pinged with a chat call (falsely "dead"); the Ollama last-resort fallback is only appended when Ollama really has models.
 - `npm run live-check`: 10/10 lanes resolve on NVIDIA alone. `npm run smoke` on real NVIDIA models: 17/17 (chat, Think 3/3 drafts + judge, research, notebook incl. 12 cards + 131 s audio, canvas model edit, real agent loop).
 
+## Finishing the missing pieces
+- Images: NVIDIA hosted FLUX (`nvidia-image`, flux.1-schnell) on the NVIDIA key: real JPEGs, 10-image storybook PDF. (Kontext editing needs pre-uploaded asset ids, so editing stays ComfyUI/Gemini.)
+- Speech-to-text: NVIDIA Riva/Parakeet over gRPC on the NVIDIA key (pure-JS WAV resampling; chunking for long audio); browser recorder now sends 16 kHz WAV. Real TTS to STT round trip passes.
+- Web search: native SearXNG (no Docker) via scripts/run-searxng.sh; auto-search picks it up (47 live results).
+- Still missing: Gemini/OpenRouter/Groq keys (not on this machine), video and image editing (need ComfyUI), ffmpeg MP3 output (Intel-only binary), Docker image build.
+- Final: typecheck clean, 269 tests, build ok, `npm run smoke` 18/18 on real services.
+
 ## Final verification (all run at the end)
 - `npm run typecheck` clean · `npm test` 258 tests / 18 files pass · `npm run build` ok.
 - `npm run smoke` (real services): 15-16 of 17 pass; the remaining warnings are the 1B local model failing to emit valid JSON / drive tools on some runs (it varies run to run).

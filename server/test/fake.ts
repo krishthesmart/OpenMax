@@ -33,7 +33,7 @@ export const setStubHandler = (h: FakeHandler | null) => { handler = h ?? defaul
 export const stubFail = (provider: string, status: number, times = 1, retryAfterSec?: number) => failing.set(provider, { status, times, retryAfterSec });
 export const setStubSearch = (f: (q: string) => FakeSearchResult[]) => { searchFn = f; };
 export const setTranscript = (t: string) => { transcript = t; };
-export const stubReset = () => { handler = defaultHandler; failing.clear(); for (const k of Object.keys(catalogs)) delete catalogs[k]; transcript = "this is a transcript"; comfy.jobs.clear(); comfy.posted.length = 0; comfy.up = true; };
+export const stubReset = () => { handler = defaultHandler; failing.clear(); for (const k of Object.keys(catalogs)) delete catalogs[k]; transcript = "this is a transcript"; comfy.jobs.clear(); comfy.posted.length = 0; nvidiaImage.posted.length = 0; comfy.up = true; };
 
 // ───────── binary fixtures ─────────
 export function pngBuffer(w: number, h: number, rgb: [number, number, number] = [90, 120, 200]): Buffer {
@@ -52,6 +52,7 @@ export function wavTone(seconds = 0.3, rate = 24000, hz = 440): Buffer {
 }
 
 // ───────── ComfyUI protocol ─────────
+export const nvidiaImage = { posted: [] as { model: string; auth: string; body: any }[] };
 export const comfy = { up: true, jobs: new Map<string, { graph: any; ready: number }>(), posted: [] as any[], freed: 0, delayMs: 30 };
 
 // ───────── wire → LLMRequest ─────────
@@ -156,6 +157,18 @@ export async function startFake(): Promise<Fake> {
       // ── Kokoro TTS
       if (p === "/kokoro/health") { res.writeHead(200); return void res.end("ok"); }
       if (p === "/kokoro/v1/audio/speech") { await readBody(rq); res.writeHead(200, { "content-type": "audio/wav" }); return void res.end(wavTone(0.3)); }
+      // ── NVIDIA hosted image API (mirrors the real validation: fixed sizes, no seed)
+      if (p.startsWith("/p/nvidia/genai/") && rq.method === "POST") {
+        const body = JSON.parse((await readBody(rq)).toString()); nvidiaImage.posted.push({ model: p.replace("/p/nvidia/genai/", ""), auth: String(rq.headers.authorization ?? ""), body });
+        const sizes = [768, 832, 896, 960, 1024, 1088, 1152, 1216, 1280, 1344]; const detail: any[] = [];
+        if ("seed" in body) detail.push({ type: "extra_forbidden", loc: ["body", "seed"], msg: "Extra inputs are not permitted" });
+        for (const k of ["width", "height"]) if (!sizes.includes(body[k])) detail.push({ type: "literal_error", loc: ["body", k], msg: `Input should be ${sizes.join(", ")}` });
+        if (detail.length) return json(res, 422, { detail });
+        if (String(body.prompt).includes("__quota__")) return json(res, 429, { detail: "rate limited" });
+        if (String(body.prompt).includes("__auth__")) return json(res, 401, { detail: "bad key" });
+        const filtered = String(body.prompt).includes("__filtered__");
+        return json(res, 200, { artifacts: [{ base64: pngBuffer(Math.min(64, body.width / 16), Math.min(64, body.height / 16)).toString("base64"), finishReason: filtered ? "CONTENT_FILTERED" : "SUCCESS" }] });
+      }
       // ── ComfyUI
       if (p.startsWith("/comfy/")) {
         if (!comfy.up) { res.writeHead(503); return void res.end("down"); }
@@ -180,7 +193,7 @@ export async function startFake(): Promise<Fake> {
     NVIDIA_BASE_URL: `${base}/p/nvidia/v1`, GEMINI_BASE_URL: `${base}/p/google/v1beta/openai`, GEMINI_NATIVE_URL: `${base}/p/google/v1beta`, OPENROUTER_BASE_URL: `${base}/p/openrouter/v1`,
     GROQ_BASE_URL: `${base}/p/groq/openai/v1`, ANTHROPIC_BASE_URL: `${base}/p/anthropic/v1`, OPENAI_BASE_URL: `${base}/p/openai/v1`, XAI_BASE_URL: `${base}/p/xai/v1`,
     DEEPSEEK_BASE_URL: `${base}/p/deepseek/v1`, META_BASE_URL: `${base}/p/meta/v1`, OLLAMA_URL: `${base}/p/ollama`, SEARXNG_URL: `${base}/searx`, SEARCH_BACKEND: "searxng",
-    KOKORO_URL: `${base}/kokoro/v1`, TTS_BACKEND: "kokoro", COMFY_URL: `${base}/comfy`, ALLOW_LOCAL_FETCH: "true",
+    KOKORO_URL: `${base}/kokoro/v1`, TTS_BACKEND: "kokoro", COMFY_URL: `${base}/comfy`, NVIDIA_GENAI_URL: `${base}/p/nvidia/genai`, ALLOW_LOCAL_FETCH: "true",
   });
   return { url: base, port, close: () => new Promise<void>((r) => srv.close(() => r())) };
 }

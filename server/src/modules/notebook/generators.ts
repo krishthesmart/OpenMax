@@ -8,6 +8,7 @@ import { dataPath } from "../../config.js";
 import { getDb, now, uid } from "../../db.js";
 import { routedComplete, routedJSON } from "../../router/router.js";
 import { synthesize } from "../speech.js";
+import { parseWav, wavConcat } from "../wav.js";
 import { getNotebook, listSources } from "./notebook.js";
 
 const exec = promisify(execFile);
@@ -110,29 +111,9 @@ export async function buildPptx(data: { title: string; slides: { title: string; 
 const probe = async (f: string) => Number((await exec("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", f])).stdout.trim()) || 0;
 export async function ffmpegAvailable() { try { await exec("ffmpeg", ["-version"]); return true; } catch { return false; } }
 
-// ───── minimal WAV tools (used when ffmpeg is missing or broken) ─────
-export interface Wav { rate: number; channels: number; bits: number; data: Buffer }
-export function parseWav(buf: Buffer): Wav {
-  if (buf.toString("latin1", 0, 4) !== "RIFF" || buf.toString("latin1", 8, 12) !== "WAVE") throw new Error("not a WAV file");
-  let off = 12, fmt: { rate: number; channels: number; bits: number; tag: number } | undefined, data: Buffer | undefined;
-  while (off + 8 <= buf.length) {
-    const id = buf.toString("latin1", off, off + 4); let size = buf.readUInt32LE(off + 4);
-    if (id === "fmt ") fmt = { tag: buf.readUInt16LE(off + 8), channels: buf.readUInt16LE(off + 10), rate: buf.readUInt32LE(off + 12), bits: buf.readUInt16LE(off + 22) };
-    if (id === "data") { if (off + 8 + size > buf.length) size = buf.length - off - 8; data = buf.subarray(off + 8, off + 8 + size); }
-    off += 8 + size + (size % 2);
-  }
-  if (!fmt || !data) throw new Error("malformed WAV");
-  if (fmt.tag !== 1) throw new Error("only PCM WAV is supported");
-  return { rate: fmt.rate, channels: fmt.channels, bits: fmt.bits, data };
-}
-export function wavConcat(parts: Wav[]): { buffer: Buffer; durations: number[] } {
-  const f = parts[0]!;
-  for (const p of parts) if (p.rate !== f.rate || p.channels !== f.channels || p.bits !== f.bits) throw new Error("audio pieces have different formats and ffmpeg is not available to convert them");
-  const data = Buffer.concat(parts.map((p) => p.data)), h = Buffer.alloc(44), br = f.rate * f.channels * (f.bits / 8);
-  h.write("RIFF", 0); h.writeUInt32LE(36 + data.length, 4); h.write("WAVEfmt ", 8); h.writeUInt32LE(16, 16); h.writeUInt16LE(1, 20); h.writeUInt16LE(f.channels, 22);
-  h.writeUInt32LE(f.rate, 24); h.writeUInt32LE(br, 28); h.writeUInt16LE(f.channels * (f.bits / 8), 32); h.writeUInt16LE(f.bits, 34); h.write("data", 36); h.writeUInt32LE(data.length, 40);
-  return { buffer: Buffer.concat([h, data]), durations: parts.map((p) => p.data.length / br) };
-}
+export { parseWav, wavConcat } from "../wav.js";
+export type { Wav } from "../wav.js";
+
 /** Convert any synthesized clip to PCM WAV: ffmpeg → macOS afconvert → already-WAV passthrough. */
 async function toWav(raw: string, wav: string, mime: string, hasFfmpeg: boolean) {
   if (hasFfmpeg) { await exec("ffmpeg", ["-y", "-loglevel", "error", "-f", mime.includes("mpeg") ? "mp3" : mime.includes("aiff") ? "aiff" : "wav", "-i", raw, "-ar", "24000", "-ac", "1", "-c:a", "pcm_s16le", wav]); return; }
