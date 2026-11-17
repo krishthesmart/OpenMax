@@ -1,0 +1,25 @@
+{
+  "name": "openmax",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Self-hosted AI workbench: free cloud models + local open models, smart routing, research, studio, code, agents.",
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n server,web -c cyan,magenta \"npm run dev -w server\" \"npm run dev -w web\"",
+    "build": "npm run build -w web && npm run build -w server",
+    "start": "npm run start -w server",
+    "typecheck": "npm run typecheck -w server && npm run typecheck -w web",
+    "test": "npm test -w server",
+    "smoke": "npm run smoke -w server",
+    "live-check": "npm run live-check -w server"
+  },
+  "devDependencies": {
+    "concurrently": "^9"
+  }
+}

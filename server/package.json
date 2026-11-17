@@ -1,0 +1,44 @@
+{
+  "name": "@openmax/server",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --clear-screen=false src/index.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "smoke": "tsx scripts/smoke.ts",
+    "live-check": "tsx scripts/live-check.ts"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7",
+    "@types/node": "^22",
+    "@types/node-cron": "^3",
+    "@types/nodemailer": "^6",
+    "@types/pdfkit": "^0.17",
+    "tsx": "^4",
+    "typescript": "~5.9",
+    "vitest": "^3"
+  },
+  "dependencies": {
+    "fastify": "^5",
+    "@fastify/static": "^8",
+    "@fastify/multipart": "^9",
+    "better-sqlite3": "^12",
+    "sqlite-vec": "^0.1.9",
+    "zod": "^3.25",
+    "dotenv": "^16",
+    "node-cron": "^3",
+    "playwright": "^1.56",
+    "@modelcontextprotocol/sdk": "^1",
+    "pdfjs-dist": "^5",
+    "pptxgenjs": "^4",
+    "pdfkit": "^0.17",
+    "svg-to-pdfkit": "^0.1.8",
+    "nodemailer": "^7",
+    "linkedom": "^0.18",
+    "@mozilla/readability": "^0.6"
+  }
+}

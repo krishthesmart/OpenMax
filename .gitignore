@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+data/openmax.db*
+data/media/
+data/sandboxes/
+data/agent/
+data/notebooks/
+data/browser-profile/
+data/tmp/
+*.log
+.DS_Store

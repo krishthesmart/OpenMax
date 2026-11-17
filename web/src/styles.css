@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0b0c10;
+  --color-panel: #12141a;
+  --color-panel2: #181b23;
+  --color-line: #252a36;
+  --color-ink: #e7e9ee;
+  --color-dim: #9aa1b2;
+  --color-faint: #666d7f;
+  --color-accent: #7c9cff;
+  --color-accent2: #b48cff;
+  --color-good: #4ade80;
+  --color-warn: #fbbf24;
+  --color-bad: #f87171;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+html, body, #root { height: 100%; }
+body { background: var(--color-bg); color: var(--color-ink); font-family: var(--font-sans); font-size: 14px; -webkit-font-smoothing: antialiased; }
+* { scrollbar-width: thin; scrollbar-color: #2b3040 transparent; }
+::selection { background: #7c9cff55; }
+
+.card { @apply rounded-xl border border-line bg-panel; }
+.btn { @apply inline-flex items-center gap-1.5 rounded-lg border border-line bg-panel2 px-3 py-1.5 text-[13px] text-ink transition hover:border-accent/60 hover:bg-[#1d212c] disabled:cursor-not-allowed disabled:opacity-40; }
+.btn-primary { @apply border-accent/70 bg-accent/15 text-accent hover:bg-accent/25; }
+.btn-danger { @apply border-bad/60 bg-bad/10 text-bad hover:bg-bad/20; }
+.btn-ghost { @apply border-transparent bg-transparent hover:bg-panel2; }
+.input { @apply w-full rounded-lg border border-line bg-bg px-3 py-2 text-[13px] text-ink outline-none placeholder:text-faint focus:border-accent/70; }
+.chip { @apply inline-flex items-center gap-1 rounded-full border border-line bg-panel2 px-2 py-0.5 text-[11px] text-dim; }
+.label { @apply text-[11px] font-medium uppercase tracking-wider text-faint; }
+.dot { @apply inline-block h-2 w-2 rounded-full; }
+
+.prose-om { line-height: 1.65; overflow-wrap: anywhere; }
+.prose-om p { margin: .5em 0; }
+.prose-om ul, .prose-om ol { margin: .5em 0 .5em 1.4em; list-style: revert; }
+.prose-om h1, .prose-om h2, .prose-om h3 { font-weight: 600; margin: 1em 0 .4em; }
+.prose-om h1 { font-size: 1.3em; } .prose-om h2 { font-size: 1.15em; } .prose-om h3 { font-size: 1.05em; }
+.prose-om a { color: var(--color-accent); text-decoration: underline; }
+.prose-om code { font-family: var(--font-mono); font-size: .88em; background: #1b1f2a; padding: .1em .35em; border-radius: 4px; }
+.prose-om pre { background: #0e1016; border: 1px solid var(--color-line); border-radius: 10px; padding: 12px 14px; overflow-x: auto; margin: .7em 0; }
+.prose-om pre code { background: none; padding: 0; }
+.prose-om blockquote { border-left: 3px solid var(--color-line); padding-left: 12px; color: var(--color-dim); }
+.prose-om table { border-collapse: collapse; margin: .6em 0; } .prose-om th, .prose-om td { border: 1px solid var(--color-line); padding: 4px 10px; }
+.cite { @apply mx-0.5 inline-flex h-4 min-w-4 cursor-pointer items-center justify-center rounded bg-accent/20 px-1 align-super text-[10px] font-semibold text-accent; }
+.hljs-keyword, .hljs-selector-tag, .hljs-literal { color: #c792ea; } .hljs-string, .hljs-attr { color: #a5e075; }
+.hljs-number { color: #f78c6c; } .hljs-comment { color: #5c6475; } .hljs-title, .hljs-function { color: #82aaff; } .hljs-built_in, .hljs-type { color: #ffcb6b; }
