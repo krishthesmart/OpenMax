@@ -73,7 +73,7 @@ export function Usage() {
             <div className="label pt-2">Requests per day (14 days)</div>
             <div className="flex h-24 items-end gap-1">
               {days.map((day) => (
-                <div key={day} className="flex flex-1 flex-col-reverse" title={day}>
+                <div key={day} className="flex max-w-[28px] flex-1 flex-col-reverse" title={day}>
                   {provs.map((p, i) => {
                     const n = d.days.find((x: any) => x.d === day && x.provider === p)?.n ?? 0;
                     return n ? <div key={p} style={{ height: (n / maxDay) * 96 + "px", background: colors[i % colors.length] }} title={p + ": " + n} /> : null;

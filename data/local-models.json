@@ -1,9 +1,9 @@
 {
-  "note": "Recommended Ollama models per memory tier (GB of unified/VRAM). Edit freely.",
+  "note": "Recommended Ollama models per memory tier (GB of unified memory or VRAM). A machine lands in the tier whose range contains its memory, so a 16 GB Mac gets the 16 GB tier. Edit freely; model names change.",
   "tiers": [
-    { "minGb": 0, "maxGb": 8, "label": "8 GB", "chat": ["llama3.2:3b", "qwen3:4b"], "code": ["qwen2.5-coder:3b"], "vision": ["moondream"], "embed": ["nomic-embed-text"] },
-    { "minGb": 8, "maxGb": 16, "label": "16 GB", "chat": ["qwen3:8b", "llama3.1:8b"], "code": ["qwen2.5-coder:7b"], "vision": ["llama3.2-vision"], "embed": ["nomic-embed-text"] },
-    { "minGb": 16, "maxGb": 32, "label": "24 GB", "chat": ["qwen3:14b", "gpt-oss:20b"], "code": ["qwen2.5-coder:14b"], "vision": ["llama3.2-vision"], "embed": ["nomic-embed-text"] },
-    { "minGb": 32, "maxGb": 9999, "label": "48 GB+", "chat": ["qwen3:32b", "llama3.3:70b"], "code": ["qwen2.5-coder:32b"], "vision": ["llama3.2-vision:90b"], "embed": ["nomic-embed-text"] }
+    { "minGb": 0, "maxGb": 12, "label": "8 GB", "chat": ["llama3.2:3b", "qwen3:4b"], "code": ["qwen2.5-coder:3b"], "vision": ["moondream"], "embed": ["nomic-embed-text"] },
+    { "minGb": 12, "maxGb": 20, "label": "16 GB", "chat": ["qwen3:8b", "llama3.1:8b"], "code": ["qwen2.5-coder:7b"], "vision": ["llama3.2-vision"], "embed": ["nomic-embed-text"] },
+    { "minGb": 20, "maxGb": 40, "label": "24 GB", "chat": ["qwen3:14b", "gpt-oss:20b"], "code": ["qwen2.5-coder:14b"], "vision": ["llama3.2-vision"], "embed": ["nomic-embed-text"] },
+    { "minGb": 40, "maxGb": 9999, "label": "48 GB+", "chat": ["qwen3:32b", "llama3.3:70b"], "code": ["qwen2.5-coder:32b"], "vision": ["llama3.2-vision:90b"], "embed": ["nomic-embed-text"] }
   ]
 }

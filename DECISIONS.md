@@ -50,3 +50,7 @@ Judgement calls made while building, newest at the bottom.
     PLAYWRIGHT_CHROMIUM_PATH). The agent browser always uses an isolated profile in `data/browser-profile`, never the user's Chrome.
 20. **ffmpeg may be unusable** (this Mac has an Intel-only build): audio overviews fall back to pure-JS WAV concatenation (+ `afconvert` / `say` WAV output); chapters
     are then returned as data instead of embedded metadata.
+21. **Auth.** `OPENMAX_PASSWORD` enables a login screen: the browser gets an HttpOnly, SameSite=Strict session cookie derived from the password (never the password itself);
+    scripts can use a Bearer header. Cookies are needed because `<img>`/`<audio>` tags cannot send headers. `/api/health`, `/api/login` and `/api/auth/status` stay public.
+22. **Ollama is the fallback for everything.** Every text lane gets `localDefault` appended if it has no local model (vision/multimodal excluded: a text model cannot see images).
+23. **Tests never write into the repo.** The test helper uses a throwaway temp DATA_DIR; the DB itself is in-memory.

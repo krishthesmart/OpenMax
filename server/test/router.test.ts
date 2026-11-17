@@ -35,6 +35,12 @@ describe("lane selection", () => {
     expect(refs(selectCandidates({ task: "code", mode: "cost-saver" }))).not.toContain("anthropic:opus");
     expect(refs(selectCandidates({ task: "code", mode: "manual:groq:large" }))).toEqual(["groq:large"]);
   });
+  it("Ollama is the fallback for everything: every text lane ends with the local default, vision lanes keep their vision model", () => {
+    for (const task of ["research", "realtime", "creative", "agentic", "long-context", "quick"] as const) expect(refs(selectCandidates({ task, mode: "auto" })).at(-1)).toBe("ollama:small");
+    expect(refs(selectCandidates({ task: "research", mode: "auto" })).filter((r) => r === "ollama:small")).toHaveLength(1);
+    expect(refs(selectCandidates({ task: "vision", mode: "auto" }))).not.toContain("ollama:small");
+    expect(refs(selectCandidates({ task: "creative", mode: "manual:groq:fast" }))).toEqual(["groq:fast"]);
+  });
   it("skips providers without keys and non-free openrouter models", () => {
     freshEnv({ OPENMAX_STUB: false, GROQ_API_KEY: "", NVIDIA_API_KEY: "", GEMINI_API_KEY: "", OPENROUTER_API_KEY: "k" });
     const s = selectCandidates({ task: "code", mode: "manual:openrouter:paid/model" });

@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { closeDb, openDb } from "../src/db.js";
 import { setConfigForTest } from "../src/config.js";
 import { overrideRouterConfigForTest, RouterConfigSchema } from "../src/router/config.js";
@@ -17,9 +20,14 @@ export const testRouterConfig = () => RouterConfigSchema.parse({
   localDefault: "ollama:small",
 });
 
+const dirs: string[] = [];
+process.on("exit", () => { for (const d of dirs) { try { fs.rmSync(d, { recursive: true, force: true }); } catch { /* best effort */ } } });
+
+/** Fresh in-memory DB + stub providers. File output (uploads, media…) goes to a throwaway temp dir, never into the repo. */
 export function freshEnv(over: Record<string, unknown> = {}) {
   closeDb(); resetLimits(); stubReset();
-  setConfigForTest({ OPENMAX_STUB: true, DATA_DIR: ":memory:", NVIDIA_API_KEY: "k", GEMINI_API_KEY: "k", OPENROUTER_API_KEY: "k", GROQ_API_KEY: "k", ...over });
+  const data = fs.mkdtempSync(path.join(os.tmpdir(), "om-test-data-")); dirs.push(data);
+  setConfigForTest({ OPENMAX_STUB: true, DATA_DIR: data, NVIDIA_API_KEY: "k", GEMINI_API_KEY: "k", OPENROUTER_API_KEY: "k", GROQ_API_KEY: "k", ...over });
   openDb(":memory:");
   overrideRouterConfigForTest(testRouterConfig());
 }

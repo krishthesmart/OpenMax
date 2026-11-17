@@ -36,6 +36,8 @@ export function selectCandidates(input: SelectInput): Selection {
       refs = refs.filter((r) => { const t = tierOf(splitRef(r).provider); if (t === "paid") { skipped.push({ ref: r, reason: "cost-saver mode" }); return false; } return true; });
       if (input.task === "quick" || input.task === "creative") refs = [...refs.filter((r) => tierOf(splitRef(r).provider) === "local"), ...refs.filter((r) => tierOf(splitRef(r).provider) !== "local")];
     }
+    // Ollama is the fallback for everything: every lane ends with the local default (text lanes only; a text model cannot see images).
+    if (input.task !== "vision" && input.task !== "multimodal" && !refs.some((r) => tierOf(splitRef(r).provider) === "local")) refs = [...refs, rc.localDefault];
     if (mode === "local-first") {
       const local = refs.filter((r) => tierOf(splitRef(r).provider) === "local");
       refs = dedupe([...(local.length ? local : [rc.localDefault]), ...refs]);

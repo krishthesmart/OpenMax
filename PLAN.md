@@ -33,4 +33,4 @@ Gate for every phase: `npm run typecheck && npm test && npm run build` pass, the
       ≤5 iterations → local branch + diff; push only on explicit click; parallel tasks; Inbox
 - [x] 11. Think mode (multi-candidate + judge), usage meter (+caps, spend, budget, comparison), first-run wizard,
       hardware detection + local model recommendations, docker-compose (openmax, searxng, comfyui[gpu])
-- [ ] 12. Polish (shortcuts, responsive, fix-it errors), README, full smoke script, live check script
+- [x] 12. Polish (shortcuts, responsive, fix-it errors), README, full smoke script, live check script

@@ -83,5 +83,27 @@ Use Node 22: `export PATH=~/.nvm/versions/node/v22.22.2/bin:$PATH` (native modul
   (JSON enabled), scripts/run-mac.sh native path.
 - Verified: typecheck, 245 tests, build. Not run: `docker build` / `docker compose up` (not exercised in this environment).
 
+## Phase 12 — done
+- Polish: password login (OPENMAX_PASSWORD → HttpOnly SameSite=Strict cookie or Bearer header, login screen in the UI), Ollama appended as the last-resort fallback of every text lane,
+  hardware tier boundaries fixed (a 16 GB Mac gets the 16 GB tier), test helper no longer leaks files into the repo, keyboard shortcuts + responsive layout + fix-it error cards throughout.
+- `npm run smoke`: 12/12 checks over real HTTP (health, provider discovery, router explain for all 10 tasks + privacy rule, chat SSE, Think, research incl. deep gap round,
+  Studio mock image+video, notebook grounding, canvas patch+restore, workspace path escapes, usage/setup, and an agent run against a local test page in a real Chromium where
+  the personal-data, payment and email gates all fired, nothing happened before approval, the password field was blocked and the rejected email was never sent).
+- `npm run live-check` exists and was run for real against local Ollama only (no cloud keys were used): 4/10 lanes resolve with Ollama alone; with keys the rest resolve.
+- README complete (quick start with the four free keys, honest expectations table, limits/privacy, paid + budget cap, editing lanes, SearXNG/ComfyUI, model-ID caveat).
+
+## Final verification (all run at the end)
+- `npm run typecheck` clean · `npm test` 252 tests / 18 files pass · `npm run build` ok · `npm run smoke` 12/12 · browser spot checks of chat, code (Monaco), studio, wizard, usage.
+
 ## Known gaps
-(none yet)
+Things built and unit-tested but NOT exercised against the real service in this environment:
+- **Cloud providers.** No NVIDIA/Gemini/OpenRouter/Groq key was used, so those wire dialects, `/models` parsing against real payloads, rate-limit headers and tool-calling probes are tested
+  only with recorded-shape fixtures and the stub. Groq and Gemini model IDs in data/router.json are best guesses (NVIDIA/OpenRouter IDs came from their public catalogs on 2026-11-16);
+  discovery marks dead ones and `live-check` shows them. Meta's API is assumed OpenAI-compatible.
+- **ffmpeg MP3 path** (embedded chapters): this Mac's ffmpeg is an Intel binary that cannot run, so only the pure-JS WAV fallback was exercised.
+- **Real TTS/STT** (Kokoro/Piper/whisper/Groq Whisper), **voice push-to-talk in a browser**, **YouTube transcript fetching**, **SMTP delivery**, **ComfyUI / fal / Gemini image generation**.
+- **Docker**: compose file validated with `docker-compose config`; the image was not built and the stack was not started.
+- **Scheduler** firing on a real clock (trigger path is tested; node-cron wiring is thin).
+- Only `t2i.json` ComfyUI workflow ships; i2v/t2v/v2v/edit need user-exported workflows (Studio greys them out with an explanation).
+- Local vision needs `ollama pull llama3.2-vision` (not installed here), so image attachments in private mode report a fix-it message on this machine.
+- The web UI has no automated tests (spot-checked manually); mobile layout is functional but not polished.

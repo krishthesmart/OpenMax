@@ -7,6 +7,7 @@ import { ROOT, cfg } from "./config.js";
 import { openDb } from "./db.js";
 import { friendlyError, HttpError } from "./util/errors.js";
 import { registerHealth } from "./routes/health.js";
+import { PUBLIC_API, checkPassword, isAuthorized, sessionCookie } from "./util/auth.js";
 
 export type Registrar = (app: FastifyInstance) => void | Promise<void>;
 const registrars: Registrar[] = [registerHealth];
@@ -22,13 +23,20 @@ export async function buildApp(opts: { logger?: boolean } = {}): Promise<Fastify
     const f = friendlyError(err);
     reply.code(f.status && f.status >= 400 && f.status < 600 ? f.status : 500).send({ error: f.message, fix: f.fix });
   });
-  if (cfg.OPENMAX_PASSWORD) {
-    app.addHook("onRequest", async (req, reply) => {
-      if (!req.url.startsWith("/api/") || req.url === "/api/health") return;
-      const h = req.headers.authorization ?? "";
-      if (h !== `Bearer ${cfg.OPENMAX_PASSWORD}`) reply.code(401).send({ error: "Unauthorized", fix: "Send Authorization: Bearer <OPENMAX_PASSWORD>." });
-    });
-  }
+  // Optional single-user password (OPENMAX_PASSWORD): Bearer header for scripts, HttpOnly cookie for the browser UI.
+  app.addHook("onRequest", async (req, reply) => {
+    const pw = cfg.OPENMAX_PASSWORD; const url = req.url.split("?")[0]!;
+    if (!pw || !url.startsWith("/api/") || PUBLIC_API.has(url)) return;
+    if (!isAuthorized(pw, req.headers)) return reply.code(401).send({ error: "Sign in required.", fix: "Enter the OPENMAX_PASSWORD from your .env." });
+  });
+  app.post("/api/login", async (req, reply) => {
+    const pw = cfg.OPENMAX_PASSWORD;
+    if (!pw) return { ok: true, required: false };
+    const given = String((req.body as any)?.password ?? "");
+    if (!checkPassword(pw, given)) { await new Promise((r) => setTimeout(r, 400)); return reply.code(401).send({ error: "Wrong password." }); }
+    reply.header("set-cookie", sessionCookie(pw)); return { ok: true, required: true };
+  });
+  app.get("/api/auth/status", async (req) => ({ required: !!cfg.OPENMAX_PASSWORD, authed: isAuthorized(cfg.OPENMAX_PASSWORD, req.headers) }));
   app.addHook("onSend", async (req, reply, payload) => {
     if (req.url.startsWith("/vendor/")) reply.header("access-control-allow-origin", "*"); // sandboxed artifact iframes load React from here
     return payload;
