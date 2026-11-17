@@ -4,6 +4,7 @@ import { allProviders, providerEnabled, refAllowed } from "./registry.js";
 import { complete } from "./llm.js";
 import { ProviderError, splitRef, type ProviderDef } from "./types.js";
 import { allRefs, getRouterConfig } from "../router/config.js";
+import { embedWith } from "../modules/embeddings.js";
 import { record429 } from "./limits.js";
 
 export interface DiscoveredModel { id: string; ctx?: number; vision?: boolean; tools?: boolean; kind: "chat" | "embedding" | "image" | "audio" | "other"; sizeB?: number }
@@ -89,14 +90,16 @@ export interface RefStatus { ref: string; ok: boolean; error?: string; ms?: numb
 
 const TOOL_PROBE = [{ name: "get_number", description: "Returns the number 42. Always call this.", parameters: { type: "object", properties: {}, additionalProperties: false } }];
 
-export async function pingRef(ref: string, probeTools = false): Promise<RefStatus> {
+export async function pingRef(ref: string, probeTools = false, role: "chat" | "embedding" | "stt" = "chat"): Promise<RefStatus> {
   const { provider, model } = splitRef(ref);
   const p = allProviders().find((x) => x.id === provider);
   if (!p || !providerEnabled(p) || !refAllowed(provider, model)) return { ref, ok: false, skipped: true, error: p ? "provider disabled" : "unknown provider" };
   const listed = catalog.get(provider);
   const inList = listed ? listed.some((m) => m.id === model || m.id === `${model}:latest`) : undefined;
   const t0 = Date.now();
+  if (role === "stt") return { ref, ok: inList !== false, ms: 0, listed: inList, error: inList === false ? "not in the provider's model list" : undefined };
   try {
+    if (role === "embedding") { const v = await embedWith(ref, ["ping"], "query"); return { ref, ok: Array.isArray(v[0]) && v[0].length > 0, ms: Date.now() - t0, listed: inList }; }
     const r = await complete({ model: ref, messages: [{ role: "user", content: "Reply with the single word: ok" }], maxTokens: 8, temperature: 0 });
     let tools: boolean | undefined;
     if (probeTools) {
@@ -115,14 +118,14 @@ export async function pingRef(ref: string, probeTools = false): Promise<RefStatu
 
 export async function pingAll(): Promise<RefStatus[]> {
   const rc = getRouterConfig();
-  const probe = new Set(rc.toolProbe);
+  const probe = new Set(rc.toolProbe), embeds = new Set(rc.embeddings), stts = new Set(rc.stt);
   const refs = allRefs(rc);
   const out: RefStatus[] = [];
   // sequential per provider (be gentle on free tiers), parallel across providers
   const byProvider = new Map<string, string[]>();
   for (const r of refs) { const k = splitRef(r).provider; byProvider.set(k, [...(byProvider.get(k) ?? []), r]); }
   await Promise.all([...byProvider.values()].map(async (list) => {
-    for (const ref of list) out.push(await pingRef(ref, probe.has(ref)));
+    for (const ref of list) out.push(await pingRef(ref, probe.has(ref), embeds.has(ref) ? "embedding" : stts.has(ref) ? "stt" : "chat"));
   }));
   const db = getDb();
   const up = db.prepare("INSERT INTO ref_status(ref,ok,error,ms,tools,checked_at) VALUES(?,?,?,?,?,?) ON CONFLICT(ref) DO UPDATE SET ok=excluded.ok,error=excluded.error,ms=excluded.ms,tools=excluded.tools,checked_at=excluded.checked_at");

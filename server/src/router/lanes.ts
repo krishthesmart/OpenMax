@@ -4,7 +4,7 @@ import { cooldownRemaining } from "../providers/limits.js";
 import { splitRef } from "../providers/types.js";
 import { getRouterConfig, type Task } from "./config.js";
 import { paidAllowed } from "./usage.js";
-import { getRefStatuses } from "../providers/discovery.js";
+import { getCatalogFor, getRefStatuses } from "../providers/discovery.js";
 
 export interface Candidate { ref: string; provider: string; tier: "paid" | "free" | "local"; note?: string }
 export interface Selection { candidates: Candidate[]; skipped: { ref: string; reason: string }[]; lane: string[] }
@@ -37,7 +37,7 @@ export function selectCandidates(input: SelectInput): Selection {
       if (input.task === "quick" || input.task === "creative") refs = [...refs.filter((r) => tierOf(splitRef(r).provider) === "local"), ...refs.filter((r) => tierOf(splitRef(r).provider) !== "local")];
     }
     // Ollama is the fallback for everything: every lane ends with the local default (text lanes only; a text model cannot see images).
-    if (input.task !== "vision" && input.task !== "multimodal" && !refs.some((r) => tierOf(splitRef(r).provider) === "local")) refs = [...refs, rc.localDefault];
+    if (getCatalogFor("ollama").length > 0 && input.task !== "vision" && input.task !== "multimodal" && !refs.some((r) => tierOf(splitRef(r).provider) === "local")) refs = [...refs, rc.localDefault];
     if (mode === "local-first") {
       const local = refs.filter((r) => tierOf(splitRef(r).provider) === "local");
       refs = dedupe([...(local.length ? local : [rc.localDefault]), ...refs]);

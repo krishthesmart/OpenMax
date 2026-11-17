@@ -1,7 +1,7 @@
 /**
  * End-to-end smoke test against REAL services (no stubs, no mocks):
  *   - the real server on a random port, real SQLite, real router
- *   - real local inference through Ollama (needs `ollama serve` and at least one pulled model)
+ *   - real model calls through whichever providers have keys in .env (NVIDIA, Gemini, OpenRouter, Groq, ...); local Ollama is optional
  *   - real web search (SearXNG/Brave/DuckDuckGo/Wikipedia, whichever is available) and real page fetches
  *   - real image generation (ComfyUI / Gemini / Pollinations, whichever is available)
  *   - real text-to-speech (macOS `say`, Piper or Kokoro)
@@ -90,22 +90,17 @@ async function check(name: string, fn: () => Promise<string | void>, opts: { sof
 
 console.log(`OpenMax smoke test on ${base}  (real services, no mocks)\n`);
 
-// Preconditions: say plainly what is missing instead of pretending
-const ollama = await fetch(`${cfg.OLLAMA_URL}/api/tags`, { signal: AbortSignal.timeout(2500) }).then((r) => r.json() as Promise<any>).catch(() => undefined);
-const localModels: string[] = (ollama?.models ?? []).map((m: any) => m.name);
-if (!localModels.length) { console.error("Ollama is not running or has no models. Run `ollama serve` and `ollama pull llama3.2:1b`, then re-run the smoke test."); process.exit(2); }
-console.log(`  local models: ${localModels.join(", ")}\n`);
-
 await check("health: providers, search, media, hardware", async () => {
   const h = await http("GET", "/api/health");
   assert(h.ok && h.providers.some((p: any) => p.id === "ollama"), "ollama missing from health"); assert(!h.providers.some((p: any) => p.paid), "paid providers must be hidden by default");
   return `search=${h.search.backend}, media=${h.media.backend}, tier ${h.hardware.recommended.label}`;
 });
 
-await check("provider discovery: real Ollama model list and pings", async () => {
-  const t = await http("POST", "/api/providers/test"); const ol = t.providers.find((p: any) => p.provider === "ollama");
-  assert(ol?.ok && ol.models >= 1, "Ollama discovery failed"); const live = t.refs.filter((r: any) => r.ok); assert(live.length >= 1, "no live ref");
-  return `${live.length}/${t.refs.filter((r: any) => !r.skipped).length} refs alive`;
+await check("provider discovery: real model lists and pings for every configured provider", async () => {
+  const t = await http("POST", "/api/providers/test"); const ok = t.providers.filter((p: any) => p.ok);
+  assert(ok.length >= 1, "no provider is reachable: add API keys to .env (see README) or start Ollama");
+  const live = t.refs.filter((r: any) => r.ok); assert(live.length >= 1, "no model in data/router.json answered");
+  return `${ok.map((p: any) => `${p.provider}(${p.models})`).join(" ")}; ${live.length}/${t.refs.filter((r: any) => !r.skipped).length} refs alive`;
 });
 
 await check("router explain: one labelled prompt per task + privacy rule", async () => {
@@ -117,14 +112,14 @@ await check("router explain: one labelled prompt per task + privacy rule", async
     ["agentic", { text: "Remind me to call the dentist every Monday morning and add it to my calendar" }], ["quick", { text: "hi" }],
   ];
   for (const [want, body] of cases) { const r = await http("POST", "/api/router/explain", body); assert(r.classification.task === want, `${want}: got ${r.classification.task}`); }
-  const priv = await http("POST", "/api/router/explain", { text: "Write a poem about my diary", private: true }); assert(priv.localOnly && priv.chosen?.startsWith("ollama:"), "private text must route local-only");
+  const priv = await http("POST", "/api/router/explain", { text: "Write a poem about my diary", private: true }); assert(priv.localOnly && priv.candidates.every((c: any) => c.tier === "local"), "private text must never be offered to a cloud model");
   return `${cases.length} tasks`;
 });
 
-await check("chat: real local model streams an answer; route event; persistence; search; title", async () => {
+await check("chat: a real model streams an answer; route event; persistence; search; title", async () => {
   const ev = await sse("/api/chat/send", { text: "Write a TypeScript function that reverses a string", mode: "auto" });
   const names = ev.map((e) => e.event); for (const n of ["start", "route", "text", "done"]) assert(names.includes(n), `missing ${n} event (got ${names.join(",")}; ${JSON.stringify(ev.find((e) => e.event === "error")?.data)})`);
-  const route = ev.find((e) => e.event === "route")!.data; assert(route.task === "code" && route.model.startsWith("ollama:"), `unexpected route ${route.model}`);
+  const route = ev.find((e) => e.event === "route")!.data; assert(route.task === "code" && route.model && route.confidence > 0, `unexpected route ${JSON.stringify(route)}`);
   const text = ev.filter((e) => e.event === "text").map((e) => e.data.text).join(""); assert(text.trim().length > 20, "answer too short");
   const done = ev.find((e) => e.event === "done")!.data; assert(done.meta.tokensOut > 0 && done.meta.tps > 0, "no usage/tps");
   const cid = ev[0]!.data.conversationId; assert((await http("GET", `/api/conversations/${cid}`)).messages.length === 2, "not persisted");
@@ -133,10 +128,10 @@ await check("chat: real local model streams an answer; route event; persistence;
   return `${route.model}, ${done.meta.tps} tok/s, title "${conv.conversation.title}"`;
 });
 
-await check("think mode: drafts from the available models, judge/fallback, persisted", async () => {
+await check("think mode: parallel drafts from real models, a real judge, persisted", async () => {
   const ev = await sse("/api/chat/send", { text: "Why is the sky blue? Answer in two sentences.", think: true });
   assert(!ev.some((e) => e.event === "error"), JSON.stringify(ev.find((e) => e.event === "error")?.data));
-  const think = ev.filter((e) => e.event === "think").at(-1)?.data; assert(think?.phase === "done" && think.candidates.length >= 2 && think.judge, "think data missing");
+  const think = ev.filter((e) => e.event === "think").at(-1)?.data; assert(think?.phase === "done" && think.candidates.length >= 2 && think.judge, "think data missing"); assert(think.candidates.filter((c: any) => !c.error).length >= 2, `drafts failed: ${JSON.stringify(think.candidates.map((c: any) => c.error))}`);
   assert(ev.filter((e) => e.event === "text").map((e) => e.data.text).join("").trim().length > 10, "empty think answer");
   return `${think.candidates.filter((c: any) => !c.error).length}/${think.candidates.length} drafts, judge: ${think.judge.action}`;
 });
@@ -192,7 +187,7 @@ await check("notebook: real retrieval → grounded chat with citation offsets �
   return `retrieved passage [${pool[0].start}-${pool[0].end}], grounded=${done.grounded}`;
 });
 
-await check("notebook generators (small local model): flashcards + audio overview", async () => {
+await check("notebook generators (real model): flashcards + audio overview", async () => {
   const nb = (await http("POST", "/api/notebooks", { title: "Cats 2" })).notebook;
   await http("POST", `/api/notebooks/${nb.id}/sources`, { kind: "text", name: "cats.txt", text: "Cats are obligate carnivores. They sleep between twelve and sixteen hours a day. A group of kittens is called a kindle. Cats purr at a frequency between 25 and 150 hertz. Domestic cats descend from the African wildcat." });
   const cards = (await retry(3, () => http("POST", `/api/notebooks/${nb.id}/generate`, { kind: "flashcards" }))).output; assert(cards.data.cards.length >= 2, "flashcards");
@@ -209,9 +204,9 @@ await check("canvas: patch engine (explicit ops) → versions → restore", asyn
   const back = await http("POST", `/api/canvas/${cv.id}/restore`, { version: 1 }); assert(back.canvas.content.includes("Hello world.") && back.canvas.version === 3, "restore");
   return "patch + atomic rejection + restore";
 });
-await check("canvas: real model edit (small local model)", async () => {
+await check("canvas: real model edit (real model)", async () => {
   const cv = (await http("POST", "/api/canvas", { title: "Notes", kind: "markdown", content: "# Plan\n\nWe will ship the product on Friday.\n" })).canvas;
-  const r = await retry(3, () => http("POST", `/api/canvas/${cv.id}/edit`, { instruction: "Change Friday to Monday", localOnly: true })); assert(r.changed && /Monday/.test(r.canvas.content), "edit not applied");
+  const r = await retry(3, () => http("POST", `/api/canvas/${cv.id}/edit`, { instruction: "Change Friday to Monday" })); assert(r.changed && /Monday/.test(r.canvas.content), "edit not applied");
   return `applied in ${r.attempts} attempt(s)`;
 }, { soft: true });
 
@@ -221,11 +216,11 @@ await check("code workspace: path-escape protection and confirm-only delete over
   assert((await fetch(base + "/api/code/delete", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ path: "src/a.txt" }) })).status === 409, "delete needs confirm");
 });
 
-await check("usage meter, setup state and think estimate reflect the real calls above", async () => {
-  const u = await http("GET", "/api/usage"); const ol = u.models.filter((m: any) => m.provider === "ollama"); assert(ol.length > 0 && ol[0].requests > 0 && ol[0].tokensOut > 0, "no ollama usage recorded");
-  const s = await http("GET", "/api/setup/state"); assert(s.hardware.memoryGb > 0 && s.ollama.running && s.ollama.models.length > 0, "setup state");
+await check("usage meter, setup state and think estimate reflect the real calls above (keys are never exposed)", async () => {
+  const u = await http("GET", "/api/usage"); const ol = u.models.filter((m: any) => !m.local); assert(ol.length > 0 && ol[0].requests > 0 && ol[0].tokensOut > 0, "no cloud usage recorded");
+  const s = await http("GET", "/api/setup/state"); assert(s.hardware.memoryGb > 0 && s.keys.NVIDIA_API_KEY !== undefined, "setup state");
   assert((await http("GET", "/api/think/estimate")).seconds > 0, "estimate");
-  return `${ol.reduce((n: number, m: any) => n + m.requests, 0)} real local requests metered`;
+  return `${ol.reduce((n: number, m: any) => n + m.requests, 0)} real requests metered`;
 });
 
 // ───────── agent: real Chromium + real executor + real approvals over HTTP + real SMTP ─────────
@@ -262,7 +257,7 @@ await check("agent: real browser on a local page: gates fire, nothing happens be
   } finally { await driver.close(); await page.close(); }
 }, { skip: haveBrowser ? undefined : "no Chromium found: run `npx playwright install chromium`" });
 
-await check("agent loop (small local model): runs end to end, writes a file in the sandbox, logs steps, posts to the Inbox", async () => {
+await check("agent loop (real model): runs end to end, writes a file in the sandbox, logs steps, posts to the Inbox", async () => {
   const { id } = await http("POST", "/api/agent/runs", { goal: "Use the file_write tool to create a file named hello.txt containing the text hello openmax, then call finish." });
   const run = await until(async () => { const r = await http("GET", `/api/agent/runs/${id}`); return r.run.status !== "running" ? r : undefined; }, 120000, "agent run");
   assert(run.steps.length >= 1, `no steps (status ${run.run.status}: ${run.run.result})`);
@@ -275,7 +270,7 @@ await check("agent loop (small local model): runs end to end, writes a file in t
 await app.close(); smtp.close(); await sleep(600);
 try { fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 }); } catch { /* best-effort */ }
 const hard = results.filter((r) => !r.ok && !r.soft), soft = results.filter((r) => !r.ok && r.soft), skipped = results.filter((r) => r.note?.startsWith("SKIPPED"));
-console.log(`\n${results.filter((r) => r.ok).length}/${results.length} checks passed${skipped.length ? `, ${skipped.length} skipped` : ""}${soft.length ? `, ${soft.length} warning(s) (a larger local model would fix these)` : ""}.`);
+console.log(`\n${results.filter((r) => r.ok).length}/${results.length} checks passed${skipped.length ? `, ${skipped.length} skipped` : ""}${soft.length ? `, ${soft.length} warning(s) (model output varied; re-run, or lean on a stronger model)` : ""}.`);
 for (const w of soft) console.log(` ⚠ ${w.name}: ${w.note}`);
 if (hard.length) { console.log("FAILED:\n" + hard.map((f) => ` ✗ ${f.name}: ${f.note}`).join("\n")); process.exit(1); }
 process.exit(0);

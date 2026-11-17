@@ -16,7 +16,7 @@ export function hashEmbed(text: string): number[] {
 export const toBlob = (v: number[]) => Buffer.from(new Float32Array(v).buffer);
 
 export interface EmbedResult { vectors: number[][]; model: string; dim: number }
-async function embedWith(ref: string, texts: string[], kind: "passage" | "query"): Promise<number[][]> {
+export async function embedWith(ref: string, texts: string[], kind: "passage" | "query"): Promise<number[][]> {
   const { provider, model } = splitRef(ref);
   const p = getProvider(provider)!;
   if (p.dialect === "ollama") {

@@ -103,6 +103,13 @@ Requirement: no mock, simulation, placeholder or demo mode anywhere; everything 
   local drafts when no cloud provider is available; error `fix` hints were being dropped by the HTTP error handler; the shipped ComfyUI workflow path depended on the working directory (now ROOT-based);
   small local models loop/truncate JSON (repeat penalty, truncated-JSON repair, flashcard pair recovery, canvas full-rewrite fallback added); ComfyUI polling is faster at first.
 
+## Cloud-first pass (after the no-mock pass)
+- Requirement: no local model. data/router.json is now cloud-only (no Ollama refs; Ollama is used only for private content if someone has it). Lane members were chosen by pinging
+  what the NVIDIA key actually serves (nemotron-3-ultra, nemotron-3-nano-omni (tool calling verified), nemotron-3.5-bolt/-super-vl, poolside laguna, mistral-large (slow, last in lanes)).
+- Only one of the four free keys exists on this machine (NVIDIA, copied from the Krish project's .env into the gitignored ~/OpenMax/.env, mode 600). Gemini, OpenRouter and Groq keys were not found anywhere.
+- Fixed: embedding/STT refs were pinged with a chat call (falsely "dead"); the Ollama last-resort fallback is only appended when Ollama really has models.
+- `npm run live-check`: 10/10 lanes resolve on NVIDIA alone. `npm run smoke` on real NVIDIA models: 17/17 (chat, Think 3/3 drafts + judge, research, notebook incl. 12 cards + 131 s audio, canvas model edit, real agent loop).
+
 ## Final verification (all run at the end)
 - `npm run typecheck` clean · `npm test` 258 tests / 18 files pass · `npm run build` ok.
 - `npm run smoke` (real services): 15-16 of 17 pass; the remaining warnings are the 1B local model failing to emit valid JSON / drive tools on some runs (it varies run to run).
