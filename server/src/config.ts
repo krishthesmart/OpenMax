@@ -6,7 +6,9 @@ import { z } from "zod";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = process.env.OPENMAX_ROOT ?? path.resolve(here, "..", "..");
-loadDotenv({ path: path.join(ROOT, ".env"), quiet: true });
+let envFile = path.join(ROOT, ".env");
+export const setEnvFileForTest = (f: string) => { envFile = f; };
+loadDotenv({ path: envFile, quiet: true });
 
 const bool = (d: boolean) =>
   z.preprocess((v) => (v === undefined || v === "" ? d : String(v).toLowerCase() === "true" || v === "1" || v === true), z.boolean());
@@ -46,7 +48,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
 /** Mutable singleton; wizard/Settings may update it and persist to .env. */
 export let cfg: Config = loadConfig();
 export function reloadConfig(): Config {
-  loadDotenv({ path: path.join(ROOT, ".env"), override: true, quiet: true });
+  loadDotenv({ path: envFile, override: true, quiet: true });
   cfg = loadConfig();
   return cfg;
 }
@@ -57,7 +59,7 @@ export function setConfigForTest(over: Partial<Record<keyof Config, unknown>>) {
 
 /** Persist KEY=value pairs into .env (keeps comments and other lines). */
 export function writeEnv(updates: Record<string, string>) {
-  const file = path.join(ROOT, ".env");
+  const file = envFile;
   const lines = fs.existsSync(file) ? fs.readFileSync(file, "utf8").split("\n") : [];
   const seen = new Set<string>();
   const out = lines.map((l) => {
@@ -67,6 +69,7 @@ export function writeEnv(updates: Record<string, string>) {
   });
   for (const [k, v] of Object.entries(updates)) if (!seen.has(k)) out.push(`${k}=${v}`);
   fs.writeFileSync(file, out.join("\n").replace(/\n*$/, "\n"), { mode: 0o600 });
+  try { fs.chmodSync(file, 0o600); } catch { /* best effort */ }
   for (const [k, v] of Object.entries(updates)) process.env[k] = v;
   return reloadConfig();
 }

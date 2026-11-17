@@ -31,6 +31,6 @@ Gate for every phase: `npm run typecheck && npm test && npm run build` pass, the
       Inbox
 - [x] 10. Async code agent: repo + instruction → sandbox clone → plan approval → edits → tests (timeout) →
       ≤5 iterations → local branch + diff; push only on explicit click; parallel tasks; Inbox
-- [ ] 11. Think mode (multi-candidate + judge), usage meter (+caps, spend, budget, comparison), first-run wizard,
+- [x] 11. Think mode (multi-candidate + judge), usage meter (+caps, spend, budget, comparison), first-run wizard,
       hardware detection + local model recommendations, docker-compose (openmax, searxng, comfyui[gpu])
 - [ ] 12. Polish (shortcuts, responsive, fix-it errors), README, full smoke script, live check script

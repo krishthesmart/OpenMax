@@ -9,6 +9,7 @@ export const NAV: { to: string; label: string; icon: string }[] = [
   { to: "/code", label: "Code", icon: "⌨" },
   { to: "/tasks", label: "Code tasks", icon: "🛠" },
   { to: "/gems", label: "Gems", icon: "✨" },
+  { to: "/usage", label: "Usage", icon: "📊" },
   { to: "/router", label: "Router", icon: "⇄" },
   { to: "/settings", label: "Settings", icon: "⚙" },
 ];

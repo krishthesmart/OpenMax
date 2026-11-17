@@ -9,3 +9,6 @@ import "./notebook.js";
 import "./canvas.js";
 import "./agent.js";
 import "./codetasks.js";
+import "./think.js";
+import "./usage.js";
+import "./setup.js";

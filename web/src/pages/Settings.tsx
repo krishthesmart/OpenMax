@@ -2,6 +2,49 @@ import { useState } from "react";
 import { api } from "../lib/api";
 import { useFetch } from "../lib/hooks";
 
+const PAID_KEYS: [string, string][] = [["ANTHROPIC_API_KEY", "Anthropic"], ["OPENAI_API_KEY", "OpenAI"], ["XAI_API_KEY", "xAI (Grok)"], ["GEMINI_PAID_API_KEY", "Google (paid key)"], ["DEEPSEEK_API_KEY", "DeepSeek"], ["META_API_KEY", "Meta (Muse)"], ["FAL_KEY", "fal.ai (media)"]];
+
+function Paid() {
+  const st = useFetch<any>("/api/setup/state");
+  const [vals, setVals] = useState<Record<string, string>>({});
+  const [budget, setBudget] = useState<string | null>(null);
+  const [msg, setMsg] = useState("");
+  if (!st.data) return null;
+  const save = async (updates: Record<string, string>) => {
+    setMsg("");
+    try { const r = await api.put("/api/setup/env", { updates }); setVals({}); setMsg("Saved. " + r.providers.filter((p: any) => p.ok).length + " providers reachable."); st.reload(); }
+    catch (e: any) { setMsg(e.message); }
+  };
+  return (
+    <section className="card p-4">
+      <div className="label mb-2">Paid flagships (optional)</div>
+      <label className="mb-3 flex items-center gap-2">
+        <input type="checkbox" checked={st.data.paid} onChange={(e) => save({ ENABLE_PAID: String(e.target.checked) })} />
+        <span>Enable paid providers. They sit at the top of the relevant lanes and are billed by the provider.</span>
+      </label>
+      {st.data.paid && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="w-44 text-dim">Monthly budget cap (USD)</span>
+            <input className="input !w-28" type="number" min={0} value={budget ?? st.data.budget} onChange={(e) => setBudget(e.target.value)} />
+            <button className="btn" onClick={() => save({ MONTHLY_BUDGET_USD: String(budget ?? st.data.budget) })}>Save</button>
+            <span className="text-[12px] text-faint">warns at 80%, switches to free/local at 100%</span>
+          </div>
+          {PAID_KEYS.map(([env, label]) => (
+            <div key={env} className="flex items-center gap-2">
+              <span className="w-44 text-dim">{label}</span>
+              <input className="input font-mono" type="password" autoComplete="off" placeholder={st.data.keys[env] ? "•••••••• set (type to replace)" : "paste key"} value={vals[env] ?? ""} onChange={(e) => setVals({ ...vals, [env]: e.target.value })} />
+              <button className="btn" disabled={!vals[env]} onClick={() => save({ [env]: vals[env]! })}>Save</button>
+            </div>
+          ))}
+        </div>
+      )}
+      {msg && <p className="mt-2 text-[12px] text-dim">{msg}</p>}
+      <div className="mt-3"><button className="btn" onClick={() => window.dispatchEvent(new Event("om:wizard"))}>Run the setup wizard again</button></div>
+    </section>
+  );
+}
+
 function Memories() {
   const { data, reload } = useFetch<any>("/api/memories");
   const [text, setText] = useState(""); const [url, setUrl] = useState<string | null>(null); const [status, setStatus] = useState<any>();
@@ -62,6 +105,7 @@ export function Settings() {
             </section>
           </>
         )}
+        <Paid />
         <Memories />
         {test && (
           <section className="card p-4">

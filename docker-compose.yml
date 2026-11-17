@@ -1,0 +1,57 @@
+# OpenMax stack.
+#   docker compose up -d                     -> openmax + searxng
+#   docker compose --profile gpu up -d       -> also ComfyUI (NVIDIA GPU + nvidia-container-toolkit required)
+#
+# Ollama is NOT included on purpose: on macOS Docker cannot use Metal, so run Ollama natively
+# (ollama.com) and OpenMax reaches it at host.docker.internal. See README "Native macOS run path".
+services:
+  openmax:
+    build: .
+    image: openmax:local
+    ports:
+      - "8787:8787"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      OLLAMA_URL: ${OLLAMA_URL_DOCKER:-http://host.docker.internal:11434}
+      SEARXNG_URL: http://searxng:8080
+      COMFY_URL: http://comfyui:8188
+      HOST: 0.0.0.0
+      # The UI has no accounts. If you expose this beyond localhost, set a password:
+      # OPENMAX_PASSWORD: change-me
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./data:/app/data
+      - ./workspace:/app/workspace
+    depends_on:
+      - searxng
+    restart: unless-stopped
+
+  searxng:
+    image: searxng/searxng:latest
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./searxng:/etc/searxng
+    environment:
+      SEARXNG_BASE_URL: http://localhost:8080/
+    restart: unless-stopped
+
+  # GPU profile. Image names and tags change; verify before use. Any ComfyUI container that exposes port 8188 works.
+  comfyui:
+    profiles: ["gpu"]
+    image: yanwk/comfyui-boot:cu124-slim
+    ports:
+      - "127.0.0.1:8188:8188"
+    volumes:
+      - ./comfy-storage:/root
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped

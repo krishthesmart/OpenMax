@@ -1,8 +1,10 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useFetch, useHotkeys } from "../lib/hooks";
 import { setPrefs, usePrefs } from "../lib/store";
 import { NAV } from "../nav";
+import { Wizard } from "./Wizard";
+import { api } from "../lib/api";
 
 function HealthDots() {
   const { data } = useFetch<any>("/api/health", [], 5000);
@@ -11,8 +13,8 @@ function HealthDots() {
     <div className="flex items-center gap-2.5" aria-label="provider health">
       {data.providers.filter((p: any) => p.enabled || !p.paid).map((p: any) => {
         const cool = p.cooldownSec > 0;
-        const color = cool ? "bg-warn" : p.enabled ? "bg-good" : "bg-faint";
-        const title = cool ? `${p.label} cooling down ${p.cooldownSec}s` : p.enabled ? `${p.label} ready` : `${p.label}: ${p.fix ?? "disabled"}`;
+        const color = cool || p.capWarn ? "bg-warn" : p.enabled ? "bg-good" : "bg-faint";
+        const title = cool ? `${p.label} cooling down ${p.cooldownSec}s` : p.capWarn ? `${p.label}: ${p.capPct}% of the free-tier daily cap used` : p.enabled ? `${p.label} ready` : `${p.label}: ${p.fix ?? "disabled"}`;
         return (
           <span key={p.id} title={title} className="flex items-center gap-1 text-[11px] text-dim">
             <span className={`dot ${color}`} />{p.id}{cool && <span className="text-warn">{p.cooldownSec}s</span>}
@@ -43,6 +45,13 @@ export function Layout() {
   const { sidebarOpen, think } = usePrefs();
   const counts = useFetch<any>("/api/inbox/count", [], 5000);
   const [help, setHelp] = useState(false);
+  const [wizard, setWizard] = useState(false);
+  useEffect(() => {
+    api.get("/api/setup/state").then((st) => { if (!st.done && !st.anyProvider) setWizard(true); }).catch(() => {});
+    const open = () => setWizard(true);
+    window.addEventListener("om:wizard", open);
+    return () => window.removeEventListener("om:wizard", open);
+  }, []);
   useHotkeys({
     "mod+b": () => setPrefs({ sidebarOpen: !sidebarOpen }),
     "mod+shift+t": () => setPrefs({ think: !think }),
@@ -75,6 +84,7 @@ export function Layout() {
         </header>
         <main className="min-h-0 flex-1 overflow-hidden"><Outlet /></main>
       </div>
+      {wizard && <Wizard onClose={() => setWizard(false)} />}
       {help && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60" onClick={() => setHelp(false)}>
           <div className="card w-96 p-5" onClick={(e) => e.stopPropagation()}>

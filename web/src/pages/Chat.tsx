@@ -127,6 +127,7 @@ export function Chat() {
   const rec = useRef(new Recorder());
   const speaker = useRef<Speaker | null>(null);
   const gemId = sp.get("gem") ?? undefined;
+  const est = useFetch<any>(think ? `/api/think/estimate?short=${input.length < 600 ? 1 : 0}&private=${conv?.private ? 1 : 0}&attachments=${atts.length ? 1 : 0}` : null, [think, atts.length, conv?.private]);
   const gem = gems.data?.gems.find((g: any) => g.id === (conv?.gem_id ?? gemId));
 
   const load = useCallback(async (cid: string, keepLeaf = false) => {
@@ -290,6 +291,7 @@ export function Chat() {
             <div className="mt-1.5 flex items-center gap-3 text-[11px] text-faint">
               <label className="flex cursor-pointer items-center gap-1"><input type="checkbox" checked={voice} onChange={(e) => setVoice(e.target.checked)} />speak replies</label>
               <span>Enter to send · Shift+Enter newline · Esc stops</span>
+              {think && est.data && <span className="text-accent">🧠 Think: {est.data.drafts} drafts + judge, about {est.data.seconds}s</span>}
             </div>
           </div>
         </div>

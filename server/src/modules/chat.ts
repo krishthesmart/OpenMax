@@ -163,7 +163,7 @@ export async function* chatTurn(body: SendBody, signal?: AbortSignal): AsyncGene
   if (citations.length) yield { event: "sources", data: citations };
   messages.unshift({ role: "system", content: sysParts.join("\n\n") });
 
-  let text = "", reasoning = "", info: RouteInfo | undefined, meta: any;
+  let text = "", reasoning = "", info: RouteInfo | undefined, meta: any, thinkData: any;
   const think = body.think && !forceRef;
   const gen = think
     ? runThink({ messages, pre, mode, private: isPrivate, allowCloud: body.allowCloud, attachments: images, attachmentKinds: kinds, signal })
@@ -174,7 +174,7 @@ export async function* chatTurn(body: SendBody, signal?: AbortSignal): AsyncGene
       else if (ev.type === "text") { text += ev.text; yield { event: "text", data: { text: ev.text } }; }
       else if (ev.type === "reasoning") { reasoning += ev.text; yield { event: "reasoning", data: { text: ev.text } }; }
       else if (ev.type === "meta") { meta = ev.meta; }
-      else if ((ev as any).type === "think") yield { event: "think", data: (ev as any).data };
+      else if ((ev as any).type === "think") { thinkData = (ev as any).data; yield { event: "think", data: thinkData }; }
     }
   } catch (e: any) {
     if (text) { addMsg(conv.id, parentOfAssistant, "assistant", text, { partial: true, route: info, error: e.message }); }
@@ -183,7 +183,7 @@ export async function* chatTurn(body: SendBody, signal?: AbortSignal): AsyncGene
     return;
   }
   if (citations.length) text = stripInvalidCites(text, citations.length);
-  const asst = addMsg(conv.id, parentOfAssistant, "assistant", text, { route: info, citations, logId: meta?.logId, tps: meta?.tps, tokens: meta ? { in: meta.tokensIn, out: meta.tokensOut } : undefined, reasoning: reasoning || undefined, think: (info as any)?.think });
+  const asst = addMsg(conv.id, parentOfAssistant, "assistant", text, { route: info, citations, logId: meta?.logId, tps: meta?.tps, tokens: meta ? { in: meta.tokensIn, out: meta.tokensOut } : undefined, reasoning: reasoning || undefined, think: thinkData && thinkData.phase === "done" ? thinkData : undefined });
   persistArtifacts(conv.id, text);
   yield { event: "done", data: { messageId: asst.id, conversationId: conv.id, meta } };
 

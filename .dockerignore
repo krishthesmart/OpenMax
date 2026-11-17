@@ -1,0 +1,16 @@
+node_modules
+**/node_modules
+**/dist
+.git
+.env
+.env.*
+!.env.example
+data/openmax.db*
+data/media
+data/sandboxes
+data/agent
+data/notebooks
+data/browser-profile
+data/uploads
+workspace
+*.log

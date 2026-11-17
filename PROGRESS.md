@@ -71,5 +71,17 @@ Use Node 22: `export PATH=~/.nvm/versions/node/v22.22.2/bin:$PATH` (native modul
   are explicit-confirm HTTP actions only (single push call site, no force, asserted in a test); agent loop has no way to push.
 - Verified: typecheck, 218 tests (real git repos, bare remote, timeouts, cancel/retry, parallel), build.
 
+## Phase 11 — done
+- Think mode: parallel drafts (nvidia + google + openrouter, + groq for short tasks, + paid flagships when allowed, local-only for private content; one local model is sampled
+  twice at different temperatures), Gemini judge picks or merges, graceful fallbacks (failed drafts, unparseable/down judge), "considered approaches" panel persisted in message
+  meta, time estimate from this machine's own latencies shown before running.
+- Usage meter: per provider/model requests, tokens, tok/s, 429s; % of known free-tier daily caps with 80% warning (also on the header dots); local GPU hours + electricity estimate;
+  paid spend vs monthly cap (warn 80%, auto free/local at 100% enforced in lane selection); subscriptions-vs-actual comparison panel from data/prices.json.
+- First-run wizard (keys → test providers → apply lane suggestions → hardware + one-click `ollama pull` with progress → search/media check), keys written to .env (0600), never echoed.
+  Paid providers + budget editable in Settings.
+- Docker: Dockerfile (Node 22, optional Chromium), docker-compose.yml (openmax, searxng, comfyui under the `gpu` profile; validated with `docker-compose config`), searxng/settings.yml
+  (JSON enabled), scripts/run-mac.sh native path.
+- Verified: typecheck, 245 tests, build. Not run: `docker build` / `docker compose up` (not exercised in this environment).
+
 ## Known gaps
 (none yet)
