@@ -3,10 +3,12 @@ import { cfg } from "./config.js";
 import { markInterruptedJobs } from "./modules/media/index.js";
 import { markInterruptedRuns } from "./modules/agent/agent.js";
 import { syncSchedules } from "./modules/agent/scheduler.js";
+import { markInterruptedTasks } from "./modules/codeagent/tasks.js";
 
 export async function bootTasks() {
   markInterruptedJobs();
   markInterruptedRuns();
+  markInterruptedTasks();
   syncSchedules();
   if (cfg.OPENMAX_STUB) return;
   const providers = await discoverAll();

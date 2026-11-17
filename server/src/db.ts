@@ -80,6 +80,15 @@ const MIGRATIONS: string[] = [
   `ALTER TABLE approvals ADD COLUMN answer TEXT;
    ALTER TABLE agent_runs ADD COLUMN unattended INTEGER NOT NULL DEFAULT 0;
    CREATE INDEX IF NOT EXISTS idx_steps_run ON agent_steps(run_id, n);`,
+  `ALTER TABLE code_tasks ADD COLUMN test_cmd TEXT;
+   ALTER TABLE code_tasks ADD COLUMN pushed INTEGER NOT NULL DEFAULT 0;
+   ALTER TABLE code_tasks ADD COLUMN base_sha TEXT;
+   ALTER TABLE code_tasks ADD COLUMN summary TEXT;
+   ALTER TABLE code_tasks ADD COLUMN test_output TEXT;
+   ALTER TABLE code_tasks ADD COLUMN tests_passed INTEGER;
+   ALTER TABLE code_tasks ADD COLUMN local_only INTEGER NOT NULL DEFAULT 0;
+   ALTER TABLE code_tasks ADD COLUMN timeout_sec INTEGER NOT NULL DEFAULT 120;
+   ALTER TABLE code_tasks ADD COLUMN repo_branch_created INTEGER NOT NULL DEFAULT 0;`,
 ];
 
 export function openDb(file?: string): DB {

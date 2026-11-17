@@ -8,3 +8,4 @@ import "./studio.js";
 import "./notebook.js";
 import "./canvas.js";
 import "./agent.js";
+import "./codetasks.js";

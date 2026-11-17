@@ -7,6 +7,7 @@ export const NAV: { to: string; label: string; icon: string }[] = [
   { to: "/agent", label: "Agent", icon: "🤖" },
   { to: "/inbox", label: "Inbox", icon: "📥" },
   { to: "/code", label: "Code", icon: "⌨" },
+  { to: "/tasks", label: "Code tasks", icon: "🛠" },
   { to: "/gems", label: "Gems", icon: "✨" },
   { to: "/router", label: "Router", icon: "⇄" },
   { to: "/settings", label: "Settings", icon: "⚙" },

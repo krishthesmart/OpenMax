@@ -29,7 +29,7 @@ Gate for every phase: `npm run typecheck && npm test && npm run build` pass, the
 - [x] 9. Agent: tool loop (≤25 steps) with web_search, fetch_page, Playwright (isolated profile), sandboxed files,
       SMTP, ICS calendar, memory; approval gates enforced in code; action log + screenshots; cron schedules;
       Inbox
-- [ ] 10. Async code agent: repo + instruction → sandbox clone → plan approval → edits → tests (timeout) →
+- [x] 10. Async code agent: repo + instruction → sandbox clone → plan approval → edits → tests (timeout) →
       ≤5 iterations → local branch + diff; push only on explicit click; parallel tasks; Inbox
 - [ ] 11. Think mode (multi-candidate + judge), usage meter (+caps, spend, budget, comparison), first-run wizard,
       hardware detection + local model recommendations, docker-compose (openmax, searxng, comfyui[gpu])

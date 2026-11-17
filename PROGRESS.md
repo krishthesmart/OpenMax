@@ -63,5 +63,13 @@ Use Node 22: `export PATH=~/.nvm/versions/node/v22.22.2/bin:$PATH` (native modul
   driver against a local test page.
 - Not verified live: SMTP delivery, cron firing on a real clock.
 
+## Phase 10 — done
+- Async code agent: task = project folder in CODE_WORKSPACE (or plain https/ssh git URL) + instruction → sandbox clone (original never modified; non-git folders get a baseline
+  snapshot; node_modules reused read-only via symlink) → model picks files, writes a plan → **waits for human plan approval** (test command editable) → edit rounds
+  (full-file or patch-op edits, all-or-nothing, path-escape/.git refused) → tests in a secret-stripped environment with hard timeout + process-group kill →
+  feedback loop up to 5 iterations → commit on a local branch + diff → Inbox. Up to 3 tasks in parallel. Branch export to the user's repo and `git push`
+  are explicit-confirm HTTP actions only (single push call site, no force, asserted in a test); agent loop has no way to push.
+- Verified: typecheck, 218 tests (real git repos, bare remote, timeouts, cancel/retry, parallel), build.
+
 ## Known gaps
 (none yet)

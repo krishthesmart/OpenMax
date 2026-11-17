@@ -8,6 +8,7 @@ import { Notebook } from "./pages/Notebook";
 import { Studio } from "./pages/Studio";
 import { Agent } from "./pages/Agent";
 import { Inbox } from "./pages/Inbox";
+import { CodeTasks } from "./pages/CodeTasks";
 import { Code } from "./pages/Code";
 import { Gems } from "./pages/Gems";
 import { RouterPage } from "./pages/Router";
@@ -25,6 +26,7 @@ export default function App() {
         <Route path="/studio" element={<Studio />} />
         <Route path="/agent" element={<Agent />} />
         <Route path="/inbox" element={<Inbox />} />
+        <Route path="/tasks" element={<CodeTasks />} />
         <Route path="/code" element={<Code />} />
         <Route path="/gems" element={<Gems />} />
         <Route path="/router" element={<RouterPage />} />
