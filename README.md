@@ -13,7 +13,7 @@ It is original code written from scratch. It is not affiliated with, and does no
 | **Code** | File tree with path-escape protection, Monaco editor, explain/fix/refactor/tests/docs with a diff view and Apply/Reject |
 | **Code tasks** | Hand off a task: sandbox clone → plan you approve → edits → tests (timeout) → up to 5 iterations → local branch and diff. Never pushes unless you click |
 | **Canvas** | A document or program you and the model edit together via structured patches, with suggestions, tone/length controls, version history and live preview |
-| **Agent** | Tool loop (max 25 steps) with search, page fetch, an isolated Playwright browser, a sandbox folder, SMTP email, ICS calendar and memory; cron schedules; Inbox; **approval gates enforced in code** |
+| **Agent** | Autonomous long-horizon tasks: writes a plan, searches, reads, drives an isolated Playwright browser, **writes and runs code in a sandbox**, builds PDFs/decks/websites and hands them back as previewable **deliverables**; **Wide research** fans one sub-agent out per item (up to 40) and returns a table plus a synthesis; SMTP email, ICS calendar, memory, cron schedules, Inbox; **approval gates enforced in code** |
 | **Router** | Classifies each message (free heuristics, then a fast LLM only if unsure) and sends it to the strongest available model for that task, with fallbacks, cooldowns and a visible reason |
 | **Think** | Several models draft in parallel and a judge picks or merges the best answer; shows the considered approaches and an estimated time first |
 | **Usage** | Requests, tokens, tokens/sec, 429s, % of free-tier caps, local GPU time and electricity estimate, paid spend vs budget, and your cost vs the subscriptions it replaces |
@@ -82,7 +82,7 @@ Things this project does **not** claim:
 - The agent never types passwords, payment card numbers or government ID numbers, and card numbers are redacted from stored messages, memories, logs and files. The agent browser uses its own profile in `data/browser-profile`, never your own browser.
 - OpenMax binds to `127.0.0.1` by default. If you expose it, set `OPENMAX_PASSWORD` (login screen plus HttpOnly cookie, or a Bearer header for scripts) and put it behind HTTPS.
 
-**What always needs your explicit click** (enforced in code, not in prompts): sending email, deleting files, buying/submitting/publishing in the browser, typing personal data into forms, answering agent questions, approving a code-task plan, exporting a code-task branch to your repo, and `git push`.
+**What always needs your explicit click** (enforced in code, not in prompts): network access for agent-run code, running any command on a platform without the OS sandbox, sending email, deleting files, buying/submitting/publishing in the browser, typing personal data into forms, answering agent questions, approving a code-task plan, exporting a code-task branch to your repo, and `git push`.
 
 ## Paid flagships and the budget cap
 
@@ -101,6 +101,15 @@ All model IDs live in two files, never in code: `data/router.json` (cloud lanes,
 - **Per message:** the mode picker in the header: Auto, Local-first, Cost-saver, or pin one specific model. Clicking the route chip on any answer re-runs it with a different model.
 
 Tasks: `code`, `reasoning`, `research`, `realtime`, `creative`, `vision`, `multimodal`, `long-context`, `agentic`, `quick`.
+
+## Autonomous tasks (Manus-style agent)
+
+The Agent page runs goals end to end. For anything with more than a couple of steps the agent first writes a **plan** (a live checklist), then works through it with these tools: `web_search`, `fetch_page`, the isolated browser, `file_write`/`file_read`, **`shell_run`** (run Python/Node/etc.), `make_pdf` (Markdown to PDF), `make_pptx`, **`deliver`** (present a file or a website folder), **`wide_research`**, memory, email and calendar. Tick "long task" for up to 60 steps instead of 25.
+
+- **Code runs in a real sandbox (macOS).** Each run gets its own workspace (`data/agent/files/runs/<id>/`). `shell_run` executes under `sandbox-exec` with a generated profile: file writes are denied everywhere except that workspace, the network is denied (even localhost), the environment has no API keys or passwords, `HOME`/`TMPDIR` point inside the workspace, and reads of `~/.ssh`, cloud credential folders, keychains, any `.env*` file, OpenMax's own `.env`, database and browser profile are denied. Commands need no approval while contained. A command that asks for the network (`network: true`, e.g. `pip install`) needs your explicit click. **On platforms without a working OS sandbox (Linux/Windows) nothing is contained, so every shell command needs your approval.** (`sandbox-exec` is deprecated by Apple but works on current macOS.)
+- **Deliverables** are previewed in the run page: PDFs, images, CSV tables, Markdown, and **websites** (a folder with `index.html` is served with its relative files). They are served under a `sandbox` Content-Security-Policy, so agent-written HTML runs in an opaque origin and cannot reach OpenMax's API or cookies.
+- **Wide research** (the Agent page's "Wide" tab, or the `wide_research` tool): one read-only sub-agent per item, 4 at a time, each searching and reading real pages and reporting only what it found. You get a CSV table (optionally with columns you name), a Markdown report with a cross-item synthesis, and every source. Sub-agents can only search and read, so they need no approvals.
+- Everything irreversible still pauses for you: sending email, deleting files, buying/submitting/typing personal data in the browser, and (new) network access for code.
 
 ## Search, ComfyUI and other services
 

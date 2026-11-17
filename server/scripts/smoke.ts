@@ -272,9 +272,49 @@ await check("agent loop (real model): runs end to end, writes a file in the sand
   const { id } = await http("POST", "/api/agent/runs", { goal: "Use the file_write tool to create a file named hello.txt containing the text hello openmax, then call finish." });
   const run = await until(async () => { const r = await http("GET", `/api/agent/runs/${id}`); return r.run.status !== "running" ? r : undefined; }, 120000, "agent run");
   assert(run.steps.length >= 1, `no steps (status ${run.run.status}: ${run.run.result})`);
-  const wrote = fs.existsSync(path.join(cfg.AGENT_SANDBOX, "hello.txt")); assert(run.steps.some((s: any) => s.tool === "file_write") && wrote, `the model did not manage to write the file (steps: ${run.steps.map((s: any) => s.tool + ":" + s.status).join(", ")})`);
+  const wrote = fs.existsSync(path.join(cfg.AGENT_SANDBOX, "runs", id, "hello.txt")); assert(run.steps.some((s: any) => s.tool === "file_write") && wrote, `the model did not manage to write the file (steps: ${run.steps.map((s: any) => s.tool + ":" + s.status).join(", ")})`);
   assert((await http("GET", "/api/inbox")).items.some((i: any) => i.ref === id), "Inbox");
   return `${run.steps.length} steps, status ${run.run.status}`;
+}, { soft: true });
+
+
+await check("sandbox: real code execution is contained (writes, network, secrets) and tools deliver real files", async () => {
+  const caps = await http("GET", "/api/agent/capabilities"); if (!caps.sandbox) return "no OS sandbox on this platform: shell commands are approval-gated instead (not exercised)";
+  const { runSandboxed } = await import("../src/modules/agent/sandbox.js"); const ws = path.join(tmp, "sbx"); const outside = path.join(tmp, "outside"); fs.mkdirSync(outside, { recursive: true });
+  const ok = await runSandboxed("python3 -c \"print(sum(i*i for i in range(10)))\" > r.txt && cat r.txt", { workspace: ws }); assert(/285/.test(ok.output) && ok.contained, `code did not run: ${ok.output}`);
+  const w = await runSandboxed(`echo x > ${outside}/leak.txt`, { workspace: ws }); assert(w.code !== 0 && !fs.existsSync(path.join(outside, "leak.txt")), "a sandboxed command wrote outside its workspace");
+  const n = await runSandboxed("curl -s -m 5 -o /dev/null -w %{http_code} https://example.com", { workspace: ws }); assert(n.output.trim() === "000" || n.code !== 0, `network was reachable from the sandbox: ${n.output}`);
+  if (fs.existsSync(path.join(process.cwd(), "..", ".env")) || fs.existsSync(path.join(process.cwd(), ".env"))) { const f = fs.existsSync(path.join(process.cwd(), "..", ".env")) ? path.join(process.cwd(), "..", ".env") : path.join(process.cwd(), ".env"); const r = await runSandboxed(`cat ${f}`, { workspace: ws }); assert(r.code !== 0 && !/API_KEY=./.test(r.output), "the sandbox could read .env"); }
+  return "code ran; writes outside, network and .env reads were all denied";
+});
+
+await check("agent (real model): plans, writes code, runs it in the sandbox, builds a PDF, delivers it, serves it", async () => {
+  const caps = await http("GET", "/api/agent/capabilities");
+  const goal = "Do this in order using your tools. 1) call plan_update with 3 steps. 2) file_write a python file squares.py that prints the sum of the squares of the numbers 1 to 10. 3) shell_run it with python3 squares.py. 4) make_pdf named report.pdf titled Squares Report containing the number the script printed. 5) call finish.";
+  const { id } = await http("POST", "/api/agent/runs", { goal, long: true });
+  let run: any; const t0 = Date.now();
+  for (;;) {
+    run = await http("GET", `/api/agent/runs/${id}`);
+    const pend = (await http("GET", "/api/approvals?status=pending")).approvals.filter((a: any) => a.run_id === id);
+    for (const a of pend) await http("POST", `/api/approvals/${a.id}`, { decision: caps.sandbox ? "reject" : "approve" }); // a contained run must need no approval at all
+    if (run.run.status !== "running") break; assert(Date.now() - t0 < 240000, "agent run timed out"); await sleep(1500);
+  }
+  const tools = run.steps.map((s: any) => s.tool);
+  assert(run.run.plan?.length >= 1 && tools.includes("plan_update"), `no plan (tools: ${tools.join(",")})`);
+  const sh = run.steps.find((s: any) => s.tool === "shell_run"); assert(sh && /385/.test(sh.result), `the script did not run in the sandbox or gave a wrong sum: ${sh?.result}`);
+  const pdf = run.deliverables.find((d: any) => d.mime === "application/pdf"); assert(pdf, `no PDF deliverable (tools: ${tools.join(",")}; result: ${run.run.result})`);
+  const r = await fetch(`${base}/api/agent/deliverables/${pdf.id}`); const buf = Buffer.from(await r.arrayBuffer()); assert(r.ok && buf.subarray(0, 4).toString() === "%PDF" && /^sandbox/.test(r.headers.get("content-security-policy") ?? ""), "deliverable not served safely");
+  return `${tools.length} steps (${tools.join(" → ")}), PDF ${(buf.length / 1024).toFixed(1)} KB served in a CSP sandbox, no approvals needed`;
+}, { soft: true });
+
+await check("wide research (real model + real search): parallel sub-agents → table + report", async () => {
+  const { id } = await http("POST", "/api/agent/wide", { items: ["Python", "Rust", "Go"], task: "Who created this programming language and in which year was it first released?", columns: ["Creator", "First release year"] });
+  const run = await until(async () => { const r = await http("GET", `/api/agent/runs/${id}`); return r.run.status !== "running" ? r : undefined; }, 420000, "wide research");
+  assert(run.run.status === "done", `run ${run.run.status}: ${run.run.result}`); assert(run.steps.length === 3 && run.steps.filter((s: any) => s.status === "ok").length >= 2, `items researched: ${run.steps.map((s: any) => s.status).join(",")}`);
+  const csv = run.deliverables.find((d: any) => d.mime === "text/csv"); assert(csv, "no CSV"); const text = await (await fetch(`${base}/api/agent/deliverables/${csv.id}`)).text();
+  assert(/Python/.test(text) && /Rust/.test(text) && /Go/.test(text) && /Creator/.test(text), "CSV is missing items/columns");
+  assert(/1991|Guido/i.test(text) && /2010|2015|Graydon|Mozilla/i.test(text), `the table does not contain the real facts:\n${text.slice(0, 600)}`);
+  return `3 items in parallel; CSV ${text.split("\n").length - 1} rows; facts verified (Python 1991/Guido, Rust 2010-15/Graydon)`;
 }, { soft: true });
 
 // ───────── report ─────────

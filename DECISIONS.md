@@ -57,3 +57,7 @@ Judgement calls made while building, newest at the bottom.
     Wikipedia (always reachable, encyclopedic only; the UI and health say so). General web search therefore needs SearXNG or a free Brave key.
 25. **Small-model robustness.** Ollama requests carry a repeat penalty; truncated JSON is repaired; flashcards recover front/back pairs from broken JSON; canvas edits fall back to a
     full-document rewrite when structured ops are unusable. These help weak local models; stronger models are simply better.
+26. **Agent code execution is contained by the OS, not by trust.** `shell_run` uses macOS `sandbox-exec` (writes only inside the per-run workspace, no network unless approved, secrets and
+    `.env*` unreadable, secrets stripped from the environment). Where no OS sandbox exists, every shell command is approval-gated and the UI says so; no container/VM claims are made.
+27. **Deliverables are served from an opaque origin.** Agent-produced HTML is delivered with `Content-Security-Policy: sandbox …`, so it cannot use the app's cookies or call its API.
+28. **Wide research uses read-only sub-agents** (search + fetch + finish only, max 8 steps, 4 in parallel, 40 items) so it needs no approval gates and cannot act in the world.

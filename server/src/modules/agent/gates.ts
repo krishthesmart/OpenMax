@@ -4,9 +4,9 @@ import { looksLikeCard } from "../../util/redact.js";
  * Approval gates. This module is the single, pure source of truth for "does this action need a human click".
  * It is called by the tool executor BEFORE any side effect; the model cannot influence or bypass it.
  */
-export type ApprovalKind = "send_message" | "delete" | "payment" | "personal_data" | "irreversible" | "question";
+export type ApprovalKind = "send_message" | "delete" | "payment" | "personal_data" | "irreversible" | "question" | "network_access" | "code_exec";
 export interface ElementInfo { ref: number; tag: string; type?: string; text?: string; name?: string; label?: string; placeholder?: string; inForm?: boolean; formAction?: string }
-export interface GateInput { tool: string; args: Record<string, any>; element?: ElementInfo; knownRecipients?: string[]; pageUrl?: string }
+export interface GateInput { tool: string; args: Record<string, any>; element?: ElementInfo; knownRecipients?: string[]; pageUrl?: string; sandboxed?: boolean }
 export type GateDecision =
   | { action: "allow" }
   | { action: "approve"; kind: ApprovalKind; summary: string; flags: string[] }
@@ -55,6 +55,13 @@ export function evaluateGate(g: GateInput): GateDecision {
       const flags = [...(fresh.length ? [`new recipient${fresh.length > 1 ? "s" : ""}: ${fresh.join(", ")}`] : []), ...(to.length > 5 ? ["many recipients"] : [])];
       return { action: "approve", kind: "send_message", summary: `Send email to ${to.join(", ") || "(no recipient)"} — "${String(args.subject ?? "").slice(0, 80)}"`, flags };
     }
+    case "shell_run": {
+      const cmd = String(args.command ?? "").replace(/\s+/g, " ").slice(0, 160);
+      // Contained runs (no network, writes confined to the run workspace) are free. Network access can exfiltrate what the sandbox can read; an uncontained shell can do anything.
+      if (!g.sandboxed) return { action: "approve", kind: "code_exec", summary: `Run a shell command on this machine (NOT sandboxed on this OS): ${cmd}`, flags: ["no sandbox available"] };
+      if (args.network) return { action: "approve", kind: "network_access", summary: `Run a command WITH network access: ${cmd}`, flags: [] };
+      return { action: "allow" };
+    }
     case "file_delete": return { action: "approve", kind: "delete", summary: `Permanently delete ${String(args.path)} from the agent sandbox`, flags: [] };
     case "browser_type": {
       const c = classifyTyped(String(args.text ?? ""), element);
@@ -77,4 +84,4 @@ export function evaluateGate(g: GateInput): GateDecision {
   }
 }
 function hostOf(u: string) { try { return new URL(u).host; } catch { return u; } }
-export const GATED_TOOLS = ["send_email", "file_delete", "browser_type", "browser_click", "browser_select"] as const;
+export const GATED_TOOLS = ["send_email", "shell_run", "file_delete", "browser_type", "browser_click", "browser_select"] as const;

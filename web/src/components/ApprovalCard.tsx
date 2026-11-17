@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { api } from "../lib/api";
 
-const KIND: Record<string, [string, string]> = { send_message: ["✉️", "Send a message"], delete: ["🗑", "Delete"], payment: ["💳", "May spend money"], personal_data: ["🪪", "Personal data"], irreversible: ["⚠️", "Irreversible action"], question: ["❓", "The agent asks"] };
+const KIND: Record<string, [string, string]> = { send_message: ["✉️", "Send a message"], delete: ["🗑", "Delete"], payment: ["💳", "May spend money"], personal_data: ["🪪", "Personal data"], irreversible: ["⚠️", "Irreversible action"], question: ["❓", "The agent asks"], network_access: ["🌐", "Network access for code"], code_exec: ["⚙️", "Run code (not sandboxed)"] };
 
 export function ApprovalCard({ a, onDone }: { a: any; onDone: () => void }) {
   const [answer, setAnswer] = useState(""); const [busy, setBusy] = useState(false); const [err, setErr] = useState("");

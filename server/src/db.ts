@@ -89,6 +89,12 @@ const MIGRATIONS: string[] = [
    ALTER TABLE code_tasks ADD COLUMN local_only INTEGER NOT NULL DEFAULT 0;
    ALTER TABLE code_tasks ADD COLUMN timeout_sec INTEGER NOT NULL DEFAULT 120;
    ALTER TABLE code_tasks ADD COLUMN repo_branch_created INTEGER NOT NULL DEFAULT 0;`,
+  `ALTER TABLE agent_runs ADD COLUMN plan TEXT;
+   ALTER TABLE agent_runs ADD COLUMN max_steps INTEGER;
+   ALTER TABLE agent_runs ADD COLUMN kind TEXT NOT NULL DEFAULT 'agent';
+   CREATE TABLE IF NOT EXISTS deliverables (
+     id TEXT PRIMARY KEY, run_id TEXT NOT NULL, title TEXT NOT NULL, path TEXT NOT NULL, kind TEXT NOT NULL, mime TEXT NOT NULL, size INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL);
+   CREATE INDEX IF NOT EXISTS idx_deliv_run ON deliverables(run_id);`,
 ];
 
 export function openDb(file?: string): DB {

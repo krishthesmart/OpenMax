@@ -12,16 +12,22 @@ import { SMTP_FIX, sendMail, smtpConfigured, validEmail } from "./mail.js";
 import { evaluateGate, type ApprovalKind, type ElementInfo } from "./gates.js";
 import { createApproval, knownRecipients, rememberRecipients, waitForDecision } from "./approvals.js";
 import type { BrowserDriver, PageView } from "./browser.js";
-import { uid } from "../../db.js";
+import { getDb, uid } from "../../db.js";
+import { runSandboxed, sandboxAvailable } from "./sandbox.js";
+import { registerDeliverable } from "./deliverables.js";
+import { markdownToPdf, toCsv, toMarkdownTable } from "./documents.js";
+import { buildPptx } from "../notebook/generators.js";
+import { MAX_ITEMS, runWide, synthesize, writeWideOutputs } from "./wide.js";
 
-export interface ToolContext { runId: string; sandbox: string; signal: AbortSignal; browser: () => BrowserDriver; unattended: boolean; onApproval?: (a: any) => void; saveShot?: (png: Buffer) => string | undefined }
+export interface ToolContext { runId: string; sandbox: string; workspace?: string; emit?: (type: string, data: any) => void; signal: AbortSignal; browser: () => BrowserDriver; unattended: boolean; onApproval?: (a: any) => void; saveShot?: (png: Buffer) => string | undefined }
 export interface ToolOutcome { status: "ok" | "error" | "blocked" | "rejected" | "pending_approval" | "finished"; message: string; data?: unknown; screenshot?: string; approvalId?: string }
 interface Impl<A> { def: ToolDef; schema: z.ZodType<A>; deferrable?: boolean; precheck?(a: A): string | undefined; inspect?(a: A, c: ToolContext): Promise<ElementInfo | undefined>; run(a: A, c: ToolContext): Promise<{ message: string; data?: unknown }> }
 
 const obj = (properties: Record<string, unknown>, required: string[] = []) => ({ type: "object", properties, required, additionalProperties: false });
 const trim = (s: string, n = 6000) => (s.length > n ? s.slice(0, n) + `\n…(${s.length - n} more characters)` : s);
 const viewText = (v: PageView) => trim(`URL: ${v.url}\nTitle: ${v.title}\n\nPage text:\n${v.text}\n\nInteractive elements (use the ref number):\n${v.elements.map((e) => `[${e.ref}] <${e.tag}${e.type ? ` type=${e.type}` : ""}> ${[e.text, e.label && `label:${e.label}`, e.name && `name:${e.name}`, e.placeholder && `placeholder:${e.placeholder}`].filter(Boolean).join(" · ")}`).join("\n")}`, 9000);
-const sandboxPath = (c: ToolContext, p: string) => { fs.mkdirSync(c.sandbox, { recursive: true }); return safeResolve(c.sandbox, p); };
+const baseDir = (c: ToolContext) => c.workspace ?? c.sandbox;
+const sandboxPath = (c: ToolContext, p: string) => { fs.mkdirSync(baseDir(c), { recursive: true }); return safeResolve(baseDir(c), p); };
 
 const toolList: Impl<any>[] = [
   { def: { name: "web_search", description: "Search the web. Returns titles, URLs and snippets.", parameters: obj({ query: { type: "string" } }, ["query"]) }, schema: z.object({ query: z.string().min(1) }),
@@ -44,7 +50,7 @@ const toolList: Impl<any>[] = [
   { def: { name: "file_write", description: "Write (create or overwrite) a text file in the sandbox.", parameters: obj({ path: { type: "string" }, content: { type: "string" } }, ["path", "content"]) }, schema: z.object({ path: z.string(), content: z.string().max(500_000) }),
     async run(a, c) { const f = sandboxPath(c, a.path); fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, redactCards(a.content)); return { message: `Wrote ${a.path} (${a.content.length} chars).` }; } },
   { def: { name: "file_delete", description: "Permanently delete a sandbox file or folder. Requires the user's approval.", parameters: obj({ path: { type: "string" } }, ["path"]) }, schema: z.object({ path: z.string() }), deferrable: true,
-    async run(a, c) { const f = sandboxPath(c, a.path); if (f === fs.realpathSync(c.sandbox)) throw new Error("Refusing to delete the sandbox root."); if (!fs.existsSync(f)) throw new Error("Not found."); fs.rmSync(f, { recursive: true, force: true }); return { message: `Deleted ${a.path}.` }; } },
+    async run(a, c) { const f = sandboxPath(c, a.path); if (f === fs.realpathSync(baseDir(c))) throw new Error("Refusing to delete the workspace root."); if (!fs.existsSync(f)) throw new Error("Not found."); fs.rmSync(f, { recursive: true, force: true }); return { message: `Deleted ${a.path}.` }; } },
   { def: { name: "send_email", description: "Send an email via the user's SMTP account. ALWAYS requires the user's approval before anything is sent.", parameters: obj({ to: { type: "array", items: { type: "string" } }, subject: { type: "string" }, body: { type: "string" } }, ["to", "subject", "body"]) }, schema: z.object({ to: z.array(z.string()).min(1).max(20), subject: z.string().min(1).max(300), body: z.string().min(1).max(20000) }), deferrable: true,
     precheck: (a) => (!smtpConfigured() ? `Email is not configured. ${SMTP_FIX}` : a.to.some((x: string) => !validEmail(x)) ? "One of the recipient addresses is invalid." : undefined),
     async run(a) { const id = await sendMail(a.to, a.subject, a.body); rememberRecipients(a.to); return { message: `Email sent to ${a.to.join(", ")} (${id}).` }; } },
@@ -56,6 +62,30 @@ const toolList: Impl<any>[] = [
       const rel = `calendar/${a.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40) || "event"}-${start.toISOString().slice(0, 10)}.ics`;
       const f = sandboxPath(c, rel); fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, ics);
       return { message: `Saved ${rel}. Open it to add to a calendar app.`, data: { file: rel } };
+    } },
+  { def: { name: "shell_run", description: "Run a shell command (python3, node, git, curl-free data work, build steps…) in your workspace folder. It is sandboxed: it can only write inside the workspace and has NO network unless network=true (which needs the user's approval). Use it to run code you wrote with file_write, process data, run tests, or build a site. Returns exit code and output.", parameters: obj({ command: { type: "string" }, network: { type: "boolean", description: "needs user approval; only for installs/downloads" }, timeout_sec: { type: "integer", description: "default 60, max 600" } }, ["command"]) }, schema: z.object({ command: z.string().min(1).max(4000), network: z.boolean().optional(), timeout_sec: z.number().int().min(1).max(600).optional() }),
+    async run(a, c) {
+      const r = await runSandboxed(a.command, { workspace: baseDir(c), timeoutMs: (a.timeout_sec ?? 60) * 1000, network: !!a.network, signal: c.signal });
+      c.emit?.("terminal", { command: a.command, code: r.code, output: r.output.slice(-1500), contained: r.contained });
+      const head = r.timedOut ? `TIMED OUT after ${a.timeout_sec ?? 60}s` : `exit code ${r.code}`;
+      return { message: trim(`${head}${r.contained ? "" : " (not sandboxed)"}\n${r.output.trim() || "(no output)"}`, 6000), data: { code: r.code } };
+    } },
+  { def: { name: "plan_update", description: "Write or update your task plan (a checklist the user sees live). Call it first with all the steps, then again as you finish steps. status: pending | doing | done.", parameters: obj({ items: { type: "array", items: obj({ text: { type: "string" }, status: { type: "string", enum: ["pending", "doing", "done"] } }, ["text", "status"]) } }, ["items"]) }, schema: z.object({ items: z.array(z.object({ text: z.string().min(1).max(200), status: z.enum(["pending", "doing", "done"]) })).min(1).max(30) }),
+    async run(a, c) { getDb().prepare("UPDATE agent_runs SET plan=? WHERE id=?").run(JSON.stringify(a.items), c.runId); c.emit?.("plan", { items: a.items }); return { message: `Plan saved (${a.items.filter((i: any) => i.status === "done").length}/${a.items.length} done).` }; } },
+  { def: { name: "deliver", description: "Present a finished file, or a folder containing index.html (a website), to the user as a deliverable they can preview and download. Path is relative to your workspace.", parameters: obj({ path: { type: "string" }, title: { type: "string" } }, ["path"]) }, schema: z.object({ path: z.string(), title: z.string().optional() }),
+    async run(a, c) { const d = registerDeliverable(c.runId, baseDir(c), a.path, a.title); c.emit?.("deliverable", d); return { message: `Delivered "${d.title}" (${d.kind === "site" ? "website" : d.mime}, ${d.size} bytes).`, data: d }; } },
+  { def: { name: "make_pdf", description: "Create a PDF report from Markdown (headings, lists, code blocks) and deliver it.", parameters: obj({ path: { type: "string", description: "e.g. report.pdf" }, title: { type: "string" }, markdown: { type: "string" } }, ["path", "title", "markdown"]) }, schema: z.object({ path: z.string(), title: z.string(), markdown: z.string().max(400_000) }),
+    async run(a, c) { const f = sandboxPath(c, a.path.endsWith(".pdf") ? a.path : a.path + ".pdf"); await markdownToPdf(f, a.title, redactCards(a.markdown)); const d = registerDeliverable(c.runId, baseDir(c), path.relative(fs.realpathSync(baseDir(c)), f), a.title); c.emit?.("deliverable", d); return { message: `Created and delivered ${d.title} (${d.size} bytes).` }; } },
+  { def: { name: "make_pptx", description: "Create a PowerPoint deck and deliver it.", parameters: obj({ path: { type: "string", description: "e.g. deck.pptx" }, title: { type: "string" }, slides: { type: "array", items: obj({ title: { type: "string" }, bullets: { type: "array", items: { type: "string" } }, notes: { type: "string" } }, ["title", "bullets"]) } }, ["path", "title", "slides"]) }, schema: z.object({ path: z.string(), title: z.string(), slides: z.array(z.object({ title: z.string(), bullets: z.array(z.string()).max(8), notes: z.string().optional() })).min(1).max(60) }),
+    async run(a, c) { const f = sandboxPath(c, a.path.endsWith(".pptx") ? a.path : a.path + ".pptx"); fs.mkdirSync(path.dirname(f), { recursive: true }); await buildPptx({ title: a.title, slides: a.slides.map((s: any) => ({ title: s.title, bullets: s.bullets.map(redactCards), notes: s.notes })) }, f); const d = registerDeliverable(c.runId, baseDir(c), path.relative(fs.realpathSync(baseDir(c)), f), a.title); c.emit?.("deliverable", d); return { message: `Created and delivered ${d.title} (${a.slides.length + 1} slides).` }; } },
+  { def: { name: "wide_research", description: `Research MANY items in parallel (up to ${MAX_ITEMS}): one sub-agent per item searches and reads the web, then results are merged into a table (CSV + Markdown) and a synthesis, all delivered. Use for "compare these 20 companies / tools / papers" style tasks.`, parameters: obj({ items: { type: "array", items: { type: "string" } }, task: { type: "string", description: "what to find out about EACH item" }, columns: { type: "array", items: { type: "string" }, description: "optional fields to extract per item" } }, ["items", "task"]) }, schema: z.object({ items: z.array(z.string().min(1)).min(1).max(MAX_ITEMS), task: z.string().min(5), columns: z.array(z.string()).max(12).optional() }),
+    async run(a, c) {
+      const rows = await runWide({ items: a.items, task: a.task, columns: a.columns, signal: c.signal, onRow: (row, done, total) => c.emit?.("wide", { item: row.item, ok: row.ok, done, total }) });
+      const report = await synthesize(a.task, rows, c.signal);
+      const out = writeWideOutputs(c.runId, baseDir(c), a.task, rows, a.columns, report);
+      c.emit?.("deliverable", out.csv); c.emit?.("deliverable", out.md);
+      const table = out.table;
+      return { message: trim(`Researched ${rows.filter((r) => r.ok).length}/${rows.length} items. Delivered a CSV table and a report.\n\n${report}\n\n${toMarkdownTable(table, ["item", ...(a.columns ?? []), "summary"])}`, 6000) };
     } },
   { def: { name: "memory_recall", description: "Look up what is known about the user from long-term memory.", parameters: obj({ query: { type: "string" } }, ["query"]) }, schema: z.object({ query: z.string() }),
     async run(a) { const m = await recallMemories(a.query, 8); return { message: m.length ? m.map((x) => `- ${x}`).join("\n") : "No relevant memories." }; } },
@@ -94,7 +124,7 @@ export async function executeTool(name: string, rawArgs: unknown, ctx: ToolConte
     }
     const pre = impl.precheck?.(args); if (pre) return { status: "error", message: pre };
     const element = impl.inspect ? await impl.inspect(args, ctx) : undefined;
-    const gate = evaluateGate({ tool: name, args, element, knownRecipients: knownRecipients(), pageUrl: ctx.browser().currentUrl() });
+    const gate = evaluateGate({ tool: name, args, element, knownRecipients: knownRecipients(), pageUrl: name.startsWith("browser_") ? ctx.browser().currentUrl() : undefined, sandboxed: sandboxAvailable() });
     if (gate.action === "block") return { status: "blocked", message: `Blocked: ${gate.reason}` };
     if (gate.action === "approve") {
       const deferred = ctx.unattended && !!impl.deferrable;

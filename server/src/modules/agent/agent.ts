@@ -11,8 +11,10 @@ import { addInbox } from "../inbox.js";
 import { cancelRunApprovals, setDeferredExecutor } from "./approvals.js";
 import { PlaywrightDriver, type BrowserDriver } from "./browser.js";
 import { executeTool, redactArgs, runDeferred, toolDefs, type ToolContext, type ToolOutcome } from "./tools.js";
+import { runWide, synthesize, writeWideOutputs, MAX_ITEMS } from "./wide.js";
 
 export const MAX_STEPS = 25;
+export const LONG_STEPS = 60;
 export const sandboxDir = () => { fs.mkdirSync(cfg.AGENT_SANDBOX, { recursive: true }); return fs.realpathSync(cfg.AGENT_SANDBOX); };
 setDeferredExecutor((a) => runDeferred(a, sandboxDir()));
 
@@ -21,7 +23,7 @@ let browserFactory: BrowserFactory = () => new PlaywrightDriver();
 export const setBrowserFactory = (f: BrowserFactory | undefined) => { browserFactory = f ?? (() => new PlaywrightDriver()); };
 let browserOwner: string | undefined;
 
-export interface RunEvent { type: "thought" | "step" | "approval" | "status" | "done" | "error"; data: any }
+export interface RunEvent { type: "thought" | "step" | "approval" | "status" | "done" | "error" | "plan" | "deliverable" | "terminal" | "wide"; data: any }
 interface Handle { id: string; abort: AbortController; emitter: EventEmitter; finished: Promise<void> }
 const handles = new Map<string, Handle>();
 
@@ -31,7 +33,9 @@ Rules:
 - Some actions (sending email, deleting files, buying, submitting forms, typing personal data) pause for the user's approval. Never try to get around this. If an action is rejected or blocked, do NOT retry it; pick another approach or finish and explain.
 - Never enter passwords, payment card numbers or ID numbers. Never invent facts; read pages with the browser or fetch_page.
 - Prefer fetch_page / web_search for reading; use the browser only for pages that need interaction.
-- When done (or if the goal cannot be completed), call the finish tool with a clear summary for the user.
+- For anything with more than two steps, FIRST call plan_update with a checklist, then keep it current as you go.
+- You have a sandboxed workspace: write code/data with file_write, run it with shell_run (no network by default), and present results with deliver, make_pdf or make_pptx. For many-item research use wide_research.
+- When done (or if the goal cannot be completed), call the finish tool with a clear summary for the user, mentioning your deliverables.
 Today is ${new Date().toDateString()}.${json ? `
 
 TOOL PROTOCOL: reply with ONLY one JSON object per turn: {"thought":"brief reasoning","tool":"<tool name>","args":{...}}.
@@ -47,19 +51,21 @@ export function parseAction(text: string): { thought?: string; name: string; arg
 
 const clip = (s: string, n: number) => (s.length > n ? s.slice(0, n) + "…" : s);
 
+export const runWorkspace = (id: string) => { const d = path.join(sandboxDir(), "runs", id); fs.mkdirSync(d, { recursive: true }); return d; };
 export function getRun(id: string) { return getDb().prepare("SELECT * FROM agent_runs WHERE id=?").get(id) as any; }
 export const listRuns = () => getDb().prepare("SELECT id,goal,status,result,schedule_id,created_at,finished_at,unattended FROM agent_runs ORDER BY created_at DESC LIMIT 100").all();
 export const runSteps = (id: string) => (getDb().prepare("SELECT * FROM agent_steps WHERE run_id=? ORDER BY n, id").all(id) as any[]).map((s) => ({ ...s, args: JSON.parse(s.args ?? "{}") }));
 export const runApprovals = (id: string) => (getDb().prepare("SELECT * FROM approvals WHERE run_id=? ORDER BY created_at").all(id) as any[]).map((a) => ({ ...a, payload: JSON.parse(a.payload) }));
 export const shotPath = (runId: string, file: string) => { if (!/^[\w-]+$/.test(runId) || file !== path.basename(file)) return undefined; const p = path.join(dataPath("agent", "runs"), runId, file); return fs.existsSync(p) ? p : undefined; };
 
-export function startRun(o: { goal: string; scheduleId?: string; unattended?: boolean; maxSteps?: number }): string {
+export function startRun(o: { goal: string; scheduleId?: string; unattended?: boolean; maxSteps?: number; long?: boolean }): string {
   const id = uid("ar_");
-  getDb().prepare("INSERT INTO agent_runs(id,goal,status,schedule_id,created_at,unattended) VALUES(?,?,'running',?,?,?)").run(id, redactCards(o.goal), o.scheduleId ?? null, now(), o.unattended ? 1 : 0);
+  const steps = o.maxSteps ?? (o.long ? LONG_STEPS : MAX_STEPS);
+  getDb().prepare("INSERT INTO agent_runs(id,goal,status,schedule_id,created_at,unattended,max_steps) VALUES(?,?,'running',?,?,?,?)").run(id, redactCards(o.goal), o.scheduleId ?? null, now(), o.unattended ? 1 : 0, steps);
   const h: Handle = { id, abort: new AbortController(), emitter: new EventEmitter(), finished: Promise.resolve() };
   h.emitter.setMaxListeners(50);
   handles.set(id, h);
-  h.finished = loop(h, o.goal, !!o.unattended, o.maxSteps ?? MAX_STEPS).finally(() => { handles.delete(id); });
+  h.finished = loop(h, o.goal, !!o.unattended, steps).finally(() => { handles.delete(id); });
   return id;
 }
 export const runFinished = (id: string) => handles.get(id)?.finished ?? Promise.resolve();
@@ -103,7 +109,7 @@ async function loop(h: Handle, goal: string, unattended: boolean, maxSteps: numb
   };
   let n = 0;
   const ctx: ToolContext = {
-    runId: id, sandbox: sandboxDir(), signal: abort.signal, unattended, browser: getBrowser,
+    runId: id, sandbox: sandboxDir(), workspace: runWorkspace(id), emit: (t, d) => emit(t as RunEvent["type"], d), signal: abort.signal, unattended, browser: getBrowser,
     onApproval: (a) => emit("approval", { ...a, payload: JSON.parse(JSON.stringify(a.payload)) }),
     saveShot: (png) => { const dir = path.join(dataPath("agent", "runs"), id); fs.mkdirSync(dir, { recursive: true }); const f = `step-${n}.png`; fs.writeFileSync(path.join(dir, f), png); return f; },
   };
@@ -143,5 +149,42 @@ async function loop(h: Handle, goal: string, unattended: boolean, maxSteps: numb
     else finish("error", `${e.message}${e.fix ? ` — ${e.fix}` : ""}`);
   } finally {
     if (browser) { await browser.close().catch(() => {}); if (browserOwner === id) browserOwner = undefined; }
+  }
+}
+
+/** A dedicated wide-research run: N parallel read-only sub-agents, one table, one report. No planning model in the loop. */
+export function startWide(o: { items: string[]; task: string; columns?: string[] }): string {
+  const items = [...new Set(o.items.map((i) => i.trim()).filter(Boolean))].slice(0, MAX_ITEMS);
+  if (!items.length) throw Object.assign(new Error("Give at least one item to research."), { status: 400 });
+  const id = uid("ar_"); const goal = `Wide research (${items.length} items): ${o.task}`;
+  getDb().prepare("INSERT INTO agent_runs(id,goal,status,created_at,unattended,max_steps,kind) VALUES(?,?,'running',?,0,?,'wide')").run(id, redactCards(goal), now(), items.length);
+  const h: Handle = { id, abort: new AbortController(), emitter: new EventEmitter(), finished: Promise.resolve() };
+  h.emitter.setMaxListeners(50); handles.set(id, h);
+  h.finished = wideLoop(h, items, o.task, o.columns).finally(() => { handles.delete(id); });
+  return id;
+}
+async function wideLoop(h: Handle, items: string[], task: string, columns?: string[]) {
+  const db = getDb(); const { id } = h; const emit = (type: RunEvent["type"], data: any) => h.emitter.emit("e", { type, data } satisfies RunEvent);
+  const goal = `Wide research (${items.length} items): ${task}`; let n = 0;
+  const finish = (status: "done" | "error" | "stopped", result: string) => {
+    db.prepare("UPDATE agent_runs SET status=?, result=?, finished_at=? WHERE id=?").run(status, redactCards(result).slice(0, 20000), now(), id);
+    addInbox({ kind: "agent_result", title: `${status === "done" ? "✓" : status === "stopped" ? "■" : "✗"} ${clip(goal, 90)}`, body: redactCards(result), ref: id });
+    emit(status === "error" ? "error" : "done", { status, result, run: getRun(id) });
+  };
+  try {
+    emit("status", { text: `Researching ${items.length} items in parallel…`, n: 0 });
+    const rows = await runWide({ items, task, columns, signal: h.abort.signal, onRow: (row, done, total) => {
+      n++; const res = clip(redactCards(`${row.summary}${row.sources.length ? `\nSources: ${row.sources.join(", ")}` : ""}`), 4000);
+      db.prepare("INSERT INTO agent_steps(run_id,n,tool,args,result,screenshot,status,ts) VALUES(?,?,?,?,?,?,?,?)").run(id, n, "research_item", JSON.stringify({ item: row.item }), res, null, row.ok ? "ok" : "error", now());
+      emit("step", { n, tool: "research_item", args: { item: row.item }, result: res, status: row.ok ? "ok" : "error", screenshot: null }); emit("wide", { item: row.item, ok: row.ok, done, total });
+    } });
+    emit("status", { text: "Writing the synthesis and the table…", n });
+    const report = await synthesize(task, rows, h.abort.signal);
+    const out = writeWideOutputs(id, runWorkspace(id), task, rows, columns, report);
+    emit("deliverable", out.csv); emit("deliverable", out.md);
+    finish("done", `${report}\n\n${rows.filter((r) => r.ok).length}/${rows.length} items researched. Download the table and the full report from the deliverables.`);
+  } catch (e: any) {
+    if (e?.name === "AbortError" || h.abort.signal.aborted) finish("stopped", "Stopped by the user.");
+    else finish("error", `${e.message}${e.fix ? ` — ${e.fix}` : ""}`);
   }
 }
