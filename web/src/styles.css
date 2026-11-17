@@ -22,7 +22,7 @@ body { background: var(--color-bg); color: var(--color-ink); font-family: var(--
 ::selection { background: #7c9cff55; }
 
 .card { @apply rounded-xl border border-line bg-panel; }
-.btn { @apply inline-flex items-center gap-1.5 rounded-lg border border-line bg-panel2 px-3 py-1.5 text-[13px] text-ink transition hover:border-accent/60 hover:bg-[#1d212c] disabled:cursor-not-allowed disabled:opacity-40; }
+.btn { @apply inline-flex whitespace-nowrap items-center gap-1.5 rounded-lg border border-line bg-panel2 px-3 py-1.5 text-[13px] text-ink transition hover:border-accent/60 hover:bg-[#1d212c] disabled:cursor-not-allowed disabled:opacity-40; }
 .btn-primary { @apply border-accent/70 bg-accent/15 text-accent hover:bg-accent/25; }
 .btn-danger { @apply border-bad/60 bg-bad/10 text-bad hover:bg-bad/20; }
 .btn-ghost { @apply border-transparent bg-transparent hover:bg-panel2; }

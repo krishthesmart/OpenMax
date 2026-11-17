@@ -14,7 +14,7 @@ Gate for every phase: `npm run typecheck && npm test && npm run build` pass, the
 - [x] 2. Router: heuristic classifier + groq LLM classifier, lanes from data/router.json, fallback on error/429,
       token buckets + cooldowns + 80% cap warnings, privacy rule, modes (auto/local-first/cost-saver/manual),
       route SSE event, decision log, `/api/router/{config,explain,stats}`, /router page (lane editor + stats)
-- [ ] 3. Chat: conversations, search, auto-titles, stop, regenerate, edit-and-resend, branching; memories
+- [x] 3. Chat: conversations, search, auto-titles, stop, regenerate, edit-and-resend, branching; memories
       (local table or MemoryOS over MCP); artifacts panel; Gems (instructions, pinned lane/model, knowledge RAG
       with citations, starters, private); attachments (images, PDF, audio→STT); voice mode (PTT → STT → TTS)
 - [ ] 4. Research: plan → parallel search → dedupe → fetch → (deep) gap round → cited synthesis, step log, follow-ups

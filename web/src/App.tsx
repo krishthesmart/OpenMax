@@ -1,13 +1,18 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { Settings } from "./pages/Settings";
+import { Chat } from "./pages/Chat";
+import { Gems } from "./pages/Gems";
 import { RouterPage } from "./pages/Router";
 
 export default function App() {
   return (
     <Routes>
       <Route element={<Layout />}>
-        <Route path="/" element={<Navigate to="/settings" replace />} />
+        <Route path="/" element={<Navigate to="/chat" replace />} />
+        <Route path="/chat" element={<Chat />} />
+        <Route path="/chat/:id" element={<Chat />} />
+        <Route path="/gems" element={<Gems />} />
         <Route path="/router" element={<RouterPage />} />
         <Route path="/settings" element={<Settings />} />
       </Route>

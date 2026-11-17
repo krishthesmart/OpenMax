@@ -23,6 +23,8 @@ export interface RouteOptions {
   signal?: AbortSignal;
   json?: boolean;
   forceRef?: string;
+  /** Precomputed classification (so callers can act on the task, e.g. search for realtime, before generating). */
+  pre?: { task: Task; confidence: number; source: "heuristic" | "classifier"; reason: string };
   exclude?: string[];
   purpose?: string;
   messageId?: string;
@@ -82,7 +84,8 @@ export async function* runRouted(opts: RouteOptions): AsyncGenerator<RouteEvent>
   const localOnly = isLocalOnly({ private: opts.private, allowCloud: opts.allowCloud, hasAttachments: hasAtt });
 
   let cls: { task: Task; confidence: number; source: RouteInfo["source"]; reason: string };
-  if (opts.task) cls = { task: opts.task, confidence: 1, source: "forced", reason: `task ${opts.task}${opts.purpose ? ` (${opts.purpose})` : ""}` };
+  if (opts.pre) cls = opts.pre;
+  else if (opts.task) cls = { task: opts.task, confidence: 1, source: "forced", reason: `task ${opts.task}${opts.purpose ? ` (${opts.purpose})` : ""}` };
   else cls = await classify({ ...opts, attachmentKinds: opts.attachmentKinds ?? (opts.attachments?.length ? ["image"] : []) });
   if (mode.startsWith("manual:")) cls = { ...cls, source: "manual" };
 

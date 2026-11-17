@@ -2,6 +2,25 @@ import { useState } from "react";
 import { api } from "../lib/api";
 import { useFetch } from "../lib/hooks";
 
+function Memories() {
+  const { data, reload } = useFetch<any>("/api/memories");
+  const [text, setText] = useState(""); const [url, setUrl] = useState<string | null>(null); const [status, setStatus] = useState<any>();
+  const u = url ?? data?.memoryos?.url ?? "";
+  return (
+    <section className="card p-4">
+      <div className="label mb-2">Long-term memory</div>
+      <div className="mb-3 flex gap-2">
+        <input className="input" placeholder="MemoryOS MCP URL (optional), e.g. http://localhost:3000/mcp" value={u} onChange={(e) => setUrl(e.target.value)} />
+        <button className="btn" onClick={async () => setStatus(await api.put("/api/memories/memoryos", { url: u }))}>Connect</button>
+      </div>
+      {status && <p className="mb-2 text-[12px] text-dim">{status.connected ? `Connected. read: ${status.read ?? "—"} · write: ${status.write ?? "—"}` : u ? "Could not connect; using the local memory table." : "Using the local memory table."}</p>}
+      <div className="mb-2 flex gap-2"><input className="input" placeholder="Add a memory, e.g. I prefer metric units" value={text} onChange={(e) => setText(e.target.value)} /><button className="btn btn-primary" disabled={text.length < 2} onClick={async () => { await api.post("/api/memories", { text }); setText(""); reload(); }}>Add</button></div>
+      <div className="max-h-48 overflow-y-auto">{data?.memories.map((m: any) => <div key={m.id} className="flex gap-2 py-1 text-[13px]"><span className="min-w-0 flex-1">{m.text}</span><button className="text-faint hover:text-bad" onClick={async () => { await api.del(`/api/memories/${m.id}`); reload(); }}>✕</button></div>)}
+        {data?.memories.length === 0 && <p className="text-[12px] text-faint">Nothing yet. Say “remember that …” in chat.</p>}</div>
+    </section>
+  );
+}
+
 export function Settings() {
   const { data, reload } = useFetch<any>("/api/health", [], 8000);
   const [test, setTest] = useState<any>();
@@ -43,6 +62,7 @@ export function Settings() {
             </section>
           </>
         )}
+        <Memories />
         {test && (
           <section className="card p-4">
             <div className="label mb-2">Last test</div>

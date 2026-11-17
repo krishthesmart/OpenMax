@@ -14,6 +14,7 @@ export const api = {
   get: <T = any>(url: string): Promise<T> => fetch(url, { headers: authHeaders() }).then(parse),
   post: <T = any>(url: string, body?: unknown): Promise<T> => fetch(url, { method: "POST", headers: { "content-type": "application/json", ...authHeaders() }, body: JSON.stringify(body ?? {}) }).then(parse),
   put: <T = any>(url: string, body?: unknown): Promise<T> => fetch(url, { method: "PUT", headers: { "content-type": "application/json", ...authHeaders() }, body: JSON.stringify(body ?? {}) }).then(parse),
+  patch: <T = any>(url: string, body?: unknown): Promise<T> => fetch(url, { method: "PATCH", headers: { "content-type": "application/json", ...authHeaders() }, body: JSON.stringify(body ?? {}) }).then(parse),
   del: <T = any>(url: string): Promise<T> => fetch(url, { method: "DELETE", headers: authHeaders() }).then(parse),
   upload: <T = any>(url: string, form: FormData): Promise<T> => fetch(url, { method: "POST", headers: authHeaders(), body: form }).then(parse),
 };

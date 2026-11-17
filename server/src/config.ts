@@ -72,6 +72,12 @@ export function writeEnv(updates: Record<string, string>) {
 }
 
 export const dataPath = (...p: string[]) => path.join(cfg.DATA_DIR, ...p);
+/** Reads JSON from DATA_DIR; if the file is missing there, falls back to the repo's shipped default in ./data. */
 export function readJson<T>(file: string, fallback: T): T {
-  try { return JSON.parse(fs.readFileSync(file, "utf8")) as T; } catch { return fallback; }
+  try { return JSON.parse(fs.readFileSync(file, "utf8")) as T; } catch { /* try shipped default */ }
+  try {
+    const rel = path.relative(cfg.DATA_DIR, file);
+    if (!rel.startsWith("..")) return JSON.parse(fs.readFileSync(path.join(ROOT, "data", rel), "utf8")) as T;
+  } catch { /* fall through */ }
+  return fallback;
 }

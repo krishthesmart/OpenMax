@@ -4,28 +4,30 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "node scripts/vendor.mjs && vite",
+    "build": "node scripts/vendor.mjs && vite build",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@monaco-editor/react": "^4.7",
+    "esbuild": "^0.28.2",
+    "highlight.js": "^11",
+    "monaco-editor": "^0.52",
     "react": "^19",
     "react-dom": "^19",
-    "react-router-dom": "^7",
     "react-markdown": "^10",
-    "remark-gfm": "^4",
+    "react-router-dom": "^7",
     "rehype-highlight": "^7",
-    "highlight.js": "^11",
-    "@monaco-editor/react": "^4.7",
-    "monaco-editor": "^0.52"
+    "remark-gfm": "^4",
+    "sucrase": "^3.35.1"
   },
   "devDependencies": {
-    "vite": "^7",
+    "@tailwindcss/vite": "^4",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^5",
     "tailwindcss": "^4",
-    "@tailwindcss/vite": "^4",
     "typescript": "~5.9",
-    "@types/react": "^19",
-    "@types/react-dom": "^19"
+    "vite": "^7"
   }
 }

@@ -12,3 +12,4 @@ data/browser-profile/
 data/tmp/
 *.log
 .DS_Store
+web/public/vendor/

@@ -29,6 +29,10 @@ export async function buildApp(opts: { logger?: boolean } = {}): Promise<Fastify
       if (h !== `Bearer ${cfg.OPENMAX_PASSWORD}`) reply.code(401).send({ error: "Unauthorized", fix: "Send Authorization: Bearer <OPENMAX_PASSWORD>." });
     });
   }
+  app.addHook("onSend", async (req, reply, payload) => {
+    if (req.url.startsWith("/vendor/")) reply.header("access-control-allow-origin", "*"); // sandboxed artifact iframes load React from here
+    return payload;
+  });
   for (const r of registrars) await r(app);
   const webDist = path.join(ROOT, "web", "dist");
   if (fs.existsSync(webDist)) {

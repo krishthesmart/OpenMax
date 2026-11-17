@@ -69,6 +69,11 @@ const MIGRATIONS: string[] = [
      log TEXT NOT NULL DEFAULT '[]', iterations INTEGER NOT NULL DEFAULT 0, sandbox TEXT, error TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);
    CREATE TABLE IF NOT EXISTS model_catalog (provider TEXT NOT NULL, model TEXT NOT NULL, meta TEXT, seen_at INTEGER NOT NULL, PRIMARY KEY(provider, model));
    CREATE TABLE IF NOT EXISTS ref_status (ref TEXT PRIMARY KEY, ok INTEGER NOT NULL, error TEXT, ms INTEGER, tools INTEGER, checked_at INTEGER NOT NULL);`,
+  `ALTER TABLE conversations ADD COLUMN leaf_id TEXT;
+   ALTER TABLE conversations ADD COLUMN allow_cloud INTEGER NOT NULL DEFAULT 0;
+   CREATE TABLE IF NOT EXISTS attachments (
+     id TEXT PRIMARY KEY, name TEXT NOT NULL, mime TEXT NOT NULL, kind TEXT NOT NULL, size INTEGER NOT NULL,
+     path TEXT NOT NULL, text_path TEXT, pages TEXT, note TEXT, created_at INTEGER NOT NULL);`,
 ];
 
 export function openDb(file?: string): DB {
