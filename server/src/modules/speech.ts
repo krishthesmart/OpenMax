@@ -78,10 +78,9 @@ export async function synthesize(text: string, voice: "host_a" | "host_b" = "hos
     return { audio, mime: "audio/wav", backend };
   }
   if (backend === "say") {
-    const aiff = tmp(".aiff"), wav = tmp(".wav");
-    await exec("say", ["-v", VOICES[voice].say, "-o", aiff, clean]);
-    try { await exec("ffmpeg", ["-y", "-loglevel", "error", "-i", aiff, "-ar", "22050", wav]); } catch { const audio = fs.readFileSync(aiff); fs.rmSync(aiff, { force: true }); return { audio, mime: "audio/aiff", backend }; }
-    const audio = fs.readFileSync(wav); fs.rmSync(aiff, { force: true }); fs.rmSync(wav, { force: true });
+    const wav = tmp(".wav");
+    await exec("say", ["-v", VOICES[voice].say, "-o", wav, "--data-format=LEI16@24000", clean]);
+    const audio = fs.readFileSync(wav); fs.rmSync(wav, { force: true });
     return { audio, mime: "audio/wav", backend };
   }
   return { audio: silentWav(Math.min(8, clean.length / 15)), mime: "audio/wav", backend: "mock" };

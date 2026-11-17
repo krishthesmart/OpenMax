@@ -40,5 +40,13 @@ Use Node 22: `export PATH=~/.nvm/versions/node/v22.22.2/bin:$PATH` (native modul
 - Verified: typecheck, 130 tests, build, browser check. Only `t2i.json` ComfyUI workflow ships; video/edit workflows are user-supplied (documented in data/workflows/README.md).
 - Not verified live: ComfyUI, fal, Gemini image generation.
 
+## Phase 7 — done
+- Notebook: sources (PDF, text files, URL, YouTube transcript via caption tracks, pasted text) → chunk + embed; chat grounded only in retrieved excerpts with [n] citations,
+  invented citations stripped, ungrounded answers flagged, passage offsets so the UI highlights the cited text; private notebooks never reach cloud models (chat and generators).
+- Generators: study guide, FAQ, timeline, quiz, flashcards (SM-2 spaced repetition), mind map (SVG), slides (.pptx via pptxgenjs), two-host audio overview
+  (script → per-line TTS → ffmpeg MP3/AAC with embedded chapters; pure-JS WAV concat + afconvert/`say` fallback when ffmpeg is missing).
+- Verified: typecheck, 148 tests, build. NOTE: this Mac's /usr/local/bin/ffmpeg is an Intel binary ("Bad CPU type"), so the ffmpeg encode path (MP3 + embedded chapters)
+  was NOT exercised here; the WAV fallback is tested. Not verified live: YouTube transcript fetch, real TTS voices.
+
 ## Known gaps
 (none yet)
