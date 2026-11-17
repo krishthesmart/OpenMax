@@ -32,5 +32,13 @@ Use Node 22: `export PATH=~/.nvm/versions/node/v22.22.2/bin:$PATH` (native modul
   explain/fix/refactor/tests/docs/custom → ```file block → Monaco diff with Apply/Reject, local-only toggle.
 - Verified: typecheck, 113 tests, build, browser check (Monaco loads from local bundle). The async code agent (Jules-style) is Phase 10.
 
+## Phase 6 — done
+- Studio: backends mock (animated SVG), comfy (API-format workflow templates with {{tokens}}, upload/poll/download, `/free` unload after queue drains),
+  fal (paid, hidden unless ENABLE_PAID), Gemini image (free tier, auto-detected from the key's model list). 18 presets, aspect/seed/duration/count,
+  job queue + progress, gallery, remix, delete, prompt enhance; unsupported ops greyed out with the reason. GPU scheduler: GPU jobs exclusive, LLM calls never gated.
+- Storybook: LLM story JSON (10 pages) → fixed character bible repeated verbatim in every page prompt (+ page-1 reference image on Gemini) → pdfkit PDF.
+- Verified: typecheck, 130 tests, build, browser check. Only `t2i.json` ComfyUI workflow ships; video/edit workflows are user-supplied (documented in data/workflows/README.md).
+- Not verified live: ComfyUI, fal, Gemini image generation.
+
 ## Known gaps
 (none yet)

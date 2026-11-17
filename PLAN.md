@@ -20,7 +20,7 @@ Gate for every phase: `npm run typecheck && npm test && npm run build` pass, the
 - [x] 4. Research: plan → parallel search → dedupe → fetch → (deep) gap round → cited synthesis, step log, follow-ups
 - [x] 5. Code: workspace tree with path-escape protection, Monaco, explain/fix/refactor/tests/docs/custom →
       ```file block → diff view → Apply/Reject
-- [ ] 6. Studio: mock / comfy / fal / free-provider image backends, t2i/i2v/t2v/v2v/edit, ~18 presets, controls,
+- [x] 6. Studio: mock / comfy / fal / free-provider image backends, t2i/i2v/t2v/v2v/edit, ~18 presets, controls,
       job queue + GPU scheduler, gallery, remix, delete; Storybook (10 pages → PDF)
 - [ ] 7. Notebook: sources (PDF/URL/text/YouTube), grounded chat with citations, audio overview (script → TTS →
       ffmpeg MP3 + chapters), study guide/FAQ/timeline, quiz + flashcards (SM-2), mind map, slides (.pptx)

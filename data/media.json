@@ -1,0 +1,6 @@
+{
+  "note": "Media model IDs. fal endpoints are only used when MEDIA_PROVIDER=fal and FAL_KEY is set. 'googleImage' lists Gemini image-capable model ids to try (the first one your key can use wins).",
+  "fal": { "t2i": "fal-ai/flux/dev", "edit": "fal-ai/flux-kontext/dev", "i2v": "fal-ai/ltx-video/image-to-video", "t2v": "fal-ai/ltx-video" },
+  "googleImage": ["gemini-2.5-flash-image", "gemini-2.0-flash-preview-image-generation"],
+  "fps": 24
+}

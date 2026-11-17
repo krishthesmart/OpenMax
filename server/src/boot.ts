@@ -1,7 +1,9 @@
 import { discoverAll, pingAll } from "./providers/discovery.js";
 import { cfg } from "./config.js";
+import { markInterruptedJobs } from "./modules/media/index.js";
 
 export async function bootTasks() {
+  markInterruptedJobs();
   if (cfg.OPENMAX_STUB) return;
   const providers = await discoverAll();
   const live = providers.filter((p) => p.ok).map((p) => `${p.provider}(${p.models})`).join(" ") || "none";
