@@ -10,7 +10,6 @@ export async function bootTasks() {
   markInterruptedRuns();
   markInterruptedTasks();
   syncSchedules();
-  if (cfg.OPENMAX_STUB) return;
   const providers = await discoverAll();
   const live = providers.filter((p) => p.ok).map((p) => `${p.provider}(${p.models})`).join(" ") || "none";
   console.log(`providers: ${live}`);

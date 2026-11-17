@@ -92,18 +92,30 @@ Use Node 22: `export PATH=~/.nvm/versions/node/v22.22.2/bin:$PATH` (native modul
 - `npm run live-check` exists and was run for real against local Ollama only (no cloud keys were used): 4/10 lanes resolve with Ollama alone; with keys the rest resolve.
 - README complete (quick start with the four free keys, honest expectations table, limits/privacy, paid + budget cap, editing lanes, SearXNG/ComfyUI, model-ID caveat).
 
+## No-mock pass (after Phase 12)
+Requirement: no mock, simulation, placeholder or demo mode anywhere; everything must really work or say clearly what is missing.
+- Removed from shipped code: the stub LLM provider and `OPENMAX_STUB`, the mock SVG media backend, silent mock TTS, fake STT, stub search/pages, stub YouTube, stub Ollama pull, mock lanes.
+- Tests now run the real provider/search/media/speech code against local fixture servers that speak the real wire protocols (`server/test/fake.ts`, never imported by shipped code).
+- `npm run smoke` rewritten to use only real services: real Ollama inference, real web search + page fetch, real macOS `say` speech, a real Chromium on a local page through the real tool executor with
+  real approvals over HTTP, and a real local SMTP server receiving nodemailer mail. Model-dependent steps are "soft" (retry; reported as warnings, never faked).
+- Real-service findings that changed the product: DuckDuckGo blocks automated requests (bot challenge) so search is now SearXNG → Brave → DuckDuckGo → Wikipedia and says which one is active;
+  Pollinations' free image endpoint now answers 402 Payment Required so it was removed (Studio needs ComfyUI or a Gemini key and refuses jobs with a fix-it message otherwise); Think now falls back to
+  local drafts when no cloud provider is available; error `fix` hints were being dropped by the HTTP error handler; the shipped ComfyUI workflow path depended on the working directory (now ROOT-based);
+  small local models loop/truncate JSON (repeat penalty, truncated-JSON repair, flashcard pair recovery, canvas full-rewrite fallback added); ComfyUI polling is faster at first.
+
 ## Final verification (all run at the end)
-- `npm run typecheck` clean · `npm test` 252 tests / 18 files pass · `npm run build` ok · `npm run smoke` 12/12 · browser spot checks of chat, code (Monaco), studio, wizard, usage.
+- `npm run typecheck` clean · `npm test` 258 tests / 18 files pass · `npm run build` ok.
+- `npm run smoke` (real services): 15-16 of 17 pass; the remaining warnings are the 1B local model failing to emit valid JSON / drive tools on some runs (it varies run to run).
+- Studio image/video generation was NOT run for real here: no ComfyUI, no Gemini key, no paid fal key on this machine (the check verifies the honest refusal instead).
 
 ## Known gaps
-Things built and unit-tested but NOT exercised against the real service in this environment:
-- **Cloud providers.** No NVIDIA/Gemini/OpenRouter/Groq key was used, so those wire dialects, `/models` parsing against real payloads, rate-limit headers and tool-calling probes are tested
-  only with recorded-shape fixtures and the stub. Groq and Gemini model IDs in data/router.json are best guesses (NVIDIA/OpenRouter IDs came from their public catalogs on 2026-11-16);
-  discovery marks dead ones and `live-check` shows them. Meta's API is assumed OpenAI-compatible.
-- **ffmpeg MP3 path** (embedded chapters): this Mac's ffmpeg is an Intel binary that cannot run, so only the pure-JS WAV fallback was exercised.
-- **Real TTS/STT** (Kokoro/Piper/whisper/Groq Whisper), **voice push-to-talk in a browser**, **YouTube transcript fetching**, **SMTP delivery**, **ComfyUI / fal / Gemini image generation**.
-- **Docker**: compose file validated with `docker-compose config`; the image was not built and the stack was not started.
-- **Scheduler** firing on a real clock (trigger path is tested; node-cron wiring is thin).
-- Only `t2i.json` ComfyUI workflow ships; i2v/t2v/v2v/edit need user-exported workflows (Studio greys them out with an explanation).
-- Local vision needs `ollama pull llama3.2-vision` (not installed here), so image attachments in private mode report a fix-it message on this machine.
+Not exercised against the real service in this environment (no keys / hardware / daemon available):
+- **Cloud providers** (NVIDIA, Gemini, OpenRouter, Groq, paid ones): no key was used, so those calls are verified only against protocol fixtures. Groq/Gemini model IDs in data/router.json are
+  best guesses (NVIDIA/OpenRouter IDs came from public catalogs on 2026-11-16); `npm run live-check` shows which are dead once you add keys. Meta's API is assumed OpenAI-compatible.
+- **Image/video generation**: ComfyUI, Gemini image and fal were not run (none available here). Only the t2i ComfyUI workflow ships.
+- **General web search**: only Wikipedia was usable here (DuckDuckGo challenged, Docker daemon not running so SearXNG could not start, no Brave key).
+- **ffmpeg MP3 path** (embedded chapters): this Mac's ffmpeg is Intel-only and cannot run; the WAV path was exercised for real.
+- **Speech-to-text** (needs whisper.cpp or a Groq key), **Kokoro/Piper TTS** (macOS `say` was used), **YouTube transcripts**, **Docker image build/up**, **cron firing on a real clock**.
+- **Model quality**: only `llama3.2:1b` is installed, which cannot reliably produce JSON or drive tools; those smoke steps pass intermittently. A stronger local model (e.g. `ollama pull qwen3:8b`
+  on this 16 GB machine) or any cloud key fixes that.
 - The web UI has no automated tests (spot-checked manually); mobile layout is functional but not polished.

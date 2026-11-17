@@ -7,9 +7,9 @@ import { nextReview } from "../src/modules/notebook/sm2.js";
 import { locatePassage } from "../src/modules/notebook/locate.js";
 import { parseCaptionTracks, parseTimedText, youtubeId } from "../src/modules/notebook/youtube.js";
 import { NOT_IN_SOURCES, addSource, buildCitations, createNotebook, listSources, notebookChat, removeSource } from "../src/modules/notebook/notebook.js";
-import { buildAudio, buildPptx, generate, parseWav, wavConcat, validateCards, validateMindmap, validateQuiz, validateScript, validateSlides } from "../src/modules/notebook/generators.js";
+import { buildAudio, buildPptx, cardPairs, generate, parseWav, wavConcat, validateCards, validateMindmap, validateQuiz, validateScript, validateSlides } from "../src/modules/notebook/generators.js";
 import { retrieve } from "../src/modules/rag.js";
-import { setStubHandler } from "../src/providers/stub.js";
+import { setStubHandler } from "./fake.js";
 import { getDb } from "../src/db.js";
 
 let tmp: string;
@@ -140,6 +140,14 @@ describe("generators", () => {
     expect((await generate(nb.id, "mindmap")).data.title).toBe("Cats");
     const slides = await generate(nb.id, "slides");
     expect(fs.readFileSync(slides.file!).subarray(0, 2).toString()).toBe("PK");
+  });
+  it("flashcards survive a small model that flattens, repeats and truncates its JSON", async () => {
+    const flat = '{"cards":[{"front":"Kitten group","back":"kindle","front":"Sleep","back":"12-16 hours","front":"Kitten group","back":"kindle","front":"Purr","back":"25-150 Hz","front":"Cut off","back":"trun';
+    expect(cardPairs(flat).map((c) => c.front)).toEqual(["Kitten group", "Sleep", "Purr"]);
+    const nb = createNotebook("Cats"); await addSource(nb.id, { kind: "text", name: "cats.txt", text: CATS });
+    setStubHandler(() => flat);
+    const out = await generate(nb.id, "flashcards"); expect(out.data.cards.length).toBeGreaterThanOrEqual(2);
+    expect((getDb().prepare("SELECT COUNT(*) n FROM cards WHERE notebook_id=?").get(nb.id) as any).n).toBe(out.data.cards.length);
   });
   it("generating without sources is a clear error", async () => {
     await expect(generate(createNotebook("E").id, "quiz")).rejects.toThrow(/at least one source/);

@@ -3,7 +3,7 @@ import { freshEnv } from "./helpers.js";
 import { selectCandidates } from "../src/router/lanes.js";
 import { classify, routedComplete, runRouted } from "../src/router/router.js";
 import { isLocalOnly } from "../src/router/privacy.js";
-import { setStubHandler, stubFail } from "../src/providers/stub.js";
+import { setStubHandler, stubFail } from "./fake.js";
 import * as L from "../src/providers/limits.js";
 import { getDb } from "../src/db.js";
 import { routerStats } from "../src/routes/router.js";
@@ -42,7 +42,7 @@ describe("lane selection", () => {
     expect(refs(selectCandidates({ task: "creative", mode: "manual:groq:fast" }))).toEqual(["groq:fast"]);
   });
   it("skips providers without keys and non-free openrouter models", () => {
-    freshEnv({ OPENMAX_STUB: false, GROQ_API_KEY: "", NVIDIA_API_KEY: "", GEMINI_API_KEY: "", OPENROUTER_API_KEY: "k" });
+    freshEnv({ GROQ_API_KEY: "", NVIDIA_API_KEY: "", GEMINI_API_KEY: "", OPENROUTER_API_KEY: "k" });
     const s = selectCandidates({ task: "code", mode: "manual:openrouter:paid/model" });
     expect(s.candidates).toEqual([]);
     expect(s.skipped[0]!.reason).toMatch(/paid OpenRouter/);

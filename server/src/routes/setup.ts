@@ -25,15 +25,14 @@ export function validateEnvUpdates(u: Record<string, string>): Record<string, st
     if (/_URL$/.test(k) && val && !/^https?:\/\/[^\s]+$/.test(val)) throw new HttpError(400, `${k} must be an http(s) URL.`);
     if (/^(ENABLE_PAID|ALLOW_FREE_CLOUD)$/.test(k) && !/^(true|false)$/.test(val)) throw new HttpError(400, `${k} must be true or false.`);
     if (/^(MONTHLY_BUDGET_USD|GPU_WATTS|USD_PER_KWH)$/.test(k) && !(Number(val) >= 0)) throw new HttpError(400, `${k} must be a non-negative number.`);
-    if (k === "SEARCH_BACKEND" && !/^(searxng|brave)$/.test(val)) throw new HttpError(400, "SEARCH_BACKEND must be searxng or brave.");
-    if (k === "MEDIA_PROVIDER" && !/^(mock|comfy|fal|google-image)$/.test(val)) throw new HttpError(400, "MEDIA_PROVIDER must be mock, comfy, fal or google-image.");
+    if (k === "SEARCH_BACKEND" && !/^(auto|searxng|brave|duckduckgo|wikipedia)$/.test(val)) throw new HttpError(400, "SEARCH_BACKEND must be auto, searxng, brave, duckduckgo or wikipedia.");
+    if (k === "MEDIA_PROVIDER" && !/^(auto|comfy|fal|google-image)$/.test(val)) throw new HttpError(400, "MEDIA_PROVIDER must be auto, comfy, fal or google-image.");
     out[k] = val;
   }
   return out;
 }
 
 async function ollamaModels(): Promise<{ running: boolean; models: string[] }> {
-  if (cfg.OPENMAX_STUB) return { running: true, models: ["llama3.2:1b"] };
   try { const r = await fetch(`${cfg.OLLAMA_URL}/api/tags`, { signal: AbortSignal.timeout(2000) }); const j: any = await r.json(); return { running: true, models: (j.models ?? []).map((m: any) => m.name) }; }
   catch { return { running: false, models: [] }; }
 }
@@ -66,7 +65,6 @@ export function registerSetup(app: FastifyInstance) {
     const b = z.object({ model: z.string().regex(/^[\w][\w.:/-]{1,80}$/, "Invalid model name") }).parse(req.body);
     const sse = openSSE(req, reply);
     try {
-      if (cfg.OPENMAX_STUB) { for (const p of [0.2, 0.6, 1]) { sse.send("progress", { status: "pulling (stub)", completed: p * 100, total: 100 }); } sse.send("done", { model: b.model }); return sse.end(); }
       const r = await fetch(`${cfg.OLLAMA_URL}/api/pull`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ model: b.model, stream: true }), signal: sse.signal }).catch(() => undefined);
       if (!r?.ok || !r.body) { sse.send("error", { message: "Ollama is not running or refused the request.", fix: "Install Ollama (ollama.com), run `ollama serve`, then try again." }); return sse.end(); }
       const dec = new TextDecoder(); let buf = "";

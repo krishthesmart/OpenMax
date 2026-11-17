@@ -44,7 +44,7 @@ export async function addSource(nid: string, s: { kind: "pdf" | "url" | "text" |
     if (youtubeId(s.url)) { const t = await fetchTranscript(s.url); name = t.title; text = t.text; kind = "youtube"; }
     else { const p = await fetchPage(s.url, { maxChars: 400_000 }); name = s.name ?? (p.title || s.url); text = p.text; }
   } else if (s.kind === "youtube") {
-    if (cfg.OPENMAX_STUB) { name = "YouTube (stub)"; text = s.text ?? "stub transcript"; } else { const t = await fetchTranscript(s.url ?? ""); name = t.title; text = t.text; }
+    const t = await fetchTranscript(s.url ?? ""); name = t.title; text = t.text;
   }
   text = text.trim();
   if (text.length < 20) throw Object.assign(new Error("That source has almost no text."), { fix: "Try a different page, or paste the text directly." });

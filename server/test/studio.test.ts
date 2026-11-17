@@ -4,17 +4,17 @@ import os from "node:os";
 import path from "node:path";
 import { freshEnv } from "./helpers.js";
 import { setConfigForTest } from "../src/config.js";
-import { composePrompt, PRESETS, dimsFor, enqueue, getJob, backendsInfo, deleteJob, listJobs, mediaDir, validateParams, mockSvg } from "../src/modules/media/index.js";
+import { composePrompt, PRESETS, dimsFor, enqueue, getJob, backendsInfo, deleteJob, listJobs, mediaDir, validateParams } from "../src/modules/media/index.js";
 import { fillWorkflow, comfyBackend } from "../src/modules/media/comfy.js";
 import { falBackend } from "../src/modules/media/fal.js";
 import { GpuScheduler } from "../src/modules/media/scheduler.js";
 import { buildPdf, getStory, pagePrompt, startStory, validateStory } from "../src/modules/media/story.js";
-import { setStubHandler } from "../src/providers/stub.js";
+import { setStubHandler, comfy, pngBuffer } from "./fake.js";
 import { saveAttachment } from "../src/modules/attachments.js";
 
 const waitFor = async (f: () => boolean, ms = 4000) => { const t = Date.now(); while (!f()) { if (Date.now() - t > ms) throw new Error("timeout"); await new Promise((r) => setTimeout(r, 15)); } };
 let tmpData: string;
-beforeEach(() => { tmpData = fs.mkdtempSync(path.join(os.tmpdir(), "om-media-")); freshEnv({ DATA_DIR: tmpData, MEDIA_PROVIDER: "mock" }); });
+beforeEach(() => { tmpData = fs.mkdtempSync(path.join(os.tmpdir(), "om-media-")); freshEnv({ DATA_DIR: tmpData, MEDIA_PROVIDER: "comfy" }); });
 afterEach(() => fs.rmSync(tmpData, { recursive: true, force: true }));
 
 describe("presets and dimensions", () => {
@@ -33,23 +33,25 @@ describe("presets and dimensions", () => {
     expect(width % 64).toBe(0); expect(height % 64).toBe(0); expect(width).toBeGreaterThan(height);
     expect(dimsFor("9:16", true).height).toBeGreaterThan(dimsFor("9:16", true).width);
   });
-  it("mock svg is deterministic per (prompt, seed) and animated for video", () => {
-    const a = mockSvg({ prompt: "x", seed: 1, width: 320, height: 200 });
-    expect(a).toBe(mockSvg({ prompt: "x", seed: 1, width: 320, height: 200 }));
-    expect(a).not.toBe(mockSvg({ prompt: "x", seed: 2, width: 320, height: 200 }));
-    expect(mockSvg({ prompt: "x", seed: 1, width: 320, height: 200, animated: true, anim: "zoom-in" })).toContain("<animateTransform");
-  });
+  it("the PNG fixture really is a PNG", () => { expect(pngBuffer(8, 8).subarray(1, 4).toString()).toBe("PNG"); });
 });
 
 describe("capabilities (grey out unsupported ops)", () => {
-  it("mock supports everything; comfy only ops with a workflow file; reasons explain how to enable", async () => {
+  it("comfy supports only ops with a workflow file (t2i ships); reasons explain how to enable; there is no fake backend", async () => {
     const info = await backendsInfo();
-    const mock = info.backends.find((b) => b.id === "mock")!; expect(Object.values(mock.ops).every((o) => o.supported)).toBe(true);
-    fs.mkdirSync(path.join(tmpData, "workflows"), { recursive: true });
-    fs.writeFileSync(path.join(tmpData, "workflows", "t2i.json"), "{}");
+    expect(info.backends.map((b) => b.id)).toEqual(expect.arrayContaining(["comfy", "google-image"]));
+    for (const gone of ["mock", "pollinations"]) expect(info.backends.some((b) => b.id === gone)).toBe(false);
     const ops = comfyBackend.ops();
-    expect(ops.t2i.supported).toBe(true);
+    expect(ops.t2i.supported).toBe(true); // data/workflows/t2i.json ships with the app
     expect(ops.i2v.supported).toBe(false); expect(ops.i2v.reason).toMatch(/workflows\/i2v\.json/);
+    const g = info.backends.find((b) => b.id === "google-image")!; expect(g.ops.t2v.supported).toBe(false); expect(g.ops.t2v.reason).toMatch(/stills/);
+  });
+  it("auto picks ComfyUI when it is running, else Gemini image when a key is set, else reports ComfyUI as unreachable", async () => {
+    freshEnv({ DATA_DIR: tmpData, MEDIA_PROVIDER: "auto", GEMINI_API_KEY: "" });
+    expect((await backendsInfo()).backends.find((b) => b.default)!.id).toBe("comfy");
+    comfy.up = false; const down = (await backendsInfo()).backends.find((b) => b.default)!; expect(down.id).toBe("comfy"); expect(down.status.ok).toBe(false); expect(down.status.detail).toMatch(/503|not reachable/);
+    freshEnv({ DATA_DIR: tmpData, MEDIA_PROVIDER: "auto", GEMINI_API_KEY: "k" }); comfy.up = false;
+    expect((await backendsInfo()).backends.find((b) => b.default)!.id).toBe("google-image");
   });
   it("fal is hidden without ENABLE_PAID and has no v2v", async () => {
     expect((await backendsInfo()).backends.some((b) => b.id === "fal")).toBe(false);
@@ -62,9 +64,12 @@ describe("capabilities (grey out unsupported ops)", () => {
     expect(() => validateParams({ ...base, count: 9 })).toThrow(/Count/);
     expect(() => validateParams({ ...base, prompt: "" })).toThrow(/prompt/);
     expect(() => validateParams({ ...base, aspect: "5:7" })).toThrow(/aspect/);
-    expect(() => validateParams({ ...base, op: "i2v" })).toThrow(/input image/);
+    expect(() => validateParams({ ...base, op: "i2v" })).toThrow(/cannot do "i2v"/);
     expect(() => validateParams({ ...base, backend: "comfy", op: "i2v", inputAttachmentId: "a" })).toThrow(/cannot do "i2v"/);
-    expect(() => validateParams({ ...base, op: "v2v", subop: "extend", prompt: "", inputAttachmentId: "a" })).not.toThrow();
+    fs.mkdirSync(path.join(tmpData, "workflows"), { recursive: true }); fs.writeFileSync(path.join(tmpData, "workflows", "i2v.json"), "{}");
+    expect(() => validateParams({ ...base, backend: "comfy", op: "i2v" })).toThrow(/input image/);
+    fs.writeFileSync(path.join(tmpData, "workflows", "v2v.json"), "{}");
+    expect(() => validateParams({ ...base, backend: "comfy", op: "v2v", subop: "extend", prompt: "", inputAttachmentId: "a" })).not.toThrow();
   });
 });
 
@@ -89,25 +94,44 @@ describe("jobs and GPU scheduler", () => {
     await expect(s.runExclusive(async () => { throw new Error("boom"); })).rejects.toThrow("boom");
     expect(await s.runExclusive(async () => 5)).toBe(5);
   });
-  it("t2i job: queued → done with count outputs, seeds increment, files served path, remixable params", async () => {
+  it("t2i job on ComfyUI with the shipped workflow: real PNG files, seeds increment, aspect sets the size, remixable params", async () => {
     const j = enqueue({ op: "t2i", prompt: "a lighthouse at dusk", aspect: "16:9", count: 3, presets: ["cinematic"], seed: 100 });
     expect(j.status).toBe("queued");
-    await waitFor(() => getJob(j.id)!.status === "done");
+    await waitFor(() => getJob(j.id)!.status === "done", 8000);
     const done = getJob(j.id)!;
     expect(done.outputs.map((o) => o.seed)).toEqual([100, 101, 102]);
-    expect(done.outputs[0]!.url).toMatch(new RegExp(`^/api/media/${j.id}/out-1\\.svg$`));
-    expect(fs.existsSync(done.outputs[0]!.file)).toBe(true);
+    expect(done.outputs[0]!.url).toMatch(new RegExp(`^/api/media/${j.id}/out-1\\.png$`));
+    expect(fs.readFileSync(done.outputs[0]!.file).subarray(1, 4).toString()).toBe("PNG");
     expect(done.params.presets).toEqual(["cinematic"]);
+    const g = comfy.posted.slice(-3); expect(g).toHaveLength(3);
+    expect(g[0]["6"].inputs.text).toContain("a lighthouse at dusk"); expect(g[0]["6"].inputs.text).toContain("cinematic lighting");
+    expect(g[0]["3"].inputs.seed).toBe(100); expect(g[2]["3"].inputs.seed).toBe(102); expect(g[0]["5"].inputs.width).toBeGreaterThan(g[0]["5"].inputs.height);
   });
-  it("video job (t2v) produces an animated clip; v2v/edit need an uploaded input", async () => {
-    const j = enqueue({ op: "t2v", prompt: "waves", aspect: "16:9", count: 1, duration: 3, presets: ["pan_left"] });
-    await waitFor(() => getJob(j.id)!.status === "done");
-    const o = getJob(j.id)!.outputs[0]!; expect(o.kind).toBe("video");
-    expect(fs.readFileSync(o.file, "utf8")).toContain("animateTransform");
-    expect(() => enqueue({ op: "v2v", subop: "restyle", prompt: "x", aspect: "16:9", count: 1, presets: [] })).toThrow(/input video/);
-    const att = await saveAttachment("clip.png", "image/png", Buffer.from("x"));
+  it("video via ComfyUI: workflow tokens are filled, the clip is downloaded, and checkpoints are unloaded after the queue drains", async () => {
+    freshEnv({ DATA_DIR: tmpData, MEDIA_PROVIDER: "comfy" });
+    fs.mkdirSync(path.join(tmpData, "workflows"), { recursive: true });
+    fs.writeFileSync(path.join(tmpData, "workflows", "t2v.json"), JSON.stringify({ "1": { class_type: "CLIPTextEncode", inputs: { text: "{{prompt}}" } }, "2": { class_type: "KSampler", inputs: { seed: "{{seed}}", w: "{{width}}", frames: "{{frames}}" } }, "9": { class_type: "VHS_VideoCombine", inputs: {} } }));
+    const j = enqueue({ op: "t2v", prompt: "waves on a beach", aspect: "16:9", count: 1, duration: 3, presets: ["dolly_in"], seed: 5 });
+    await waitFor(() => getJob(j.id)!.status === "done", 8000);
+    const o = getJob(j.id)!.outputs[0]!; expect(o.kind).toBe("video"); expect(o.mime).toBe("video/mp4"); expect(fs.readFileSync(o.file, "utf8")).toBe("fixture-mp4-bytes");
+    const g = comfy.posted.at(-1); expect(g["1"].inputs.text).toContain("waves on a beach"); expect(g["1"].inputs.text).toContain("dolly in"); expect(g["2"].inputs.seed).toBe(5); expect(g["2"].inputs.frames).toBe(73); expect(typeof g["2"].inputs.w).toBe("number");
+    await waitFor(() => comfy.freed >= 1, 3000);
+  });
+  it("ComfyUI rejections surface the node error; image edit uploads the input and fills {{image}}", async () => {
+    freshEnv({ DATA_DIR: tmpData, MEDIA_PROVIDER: "comfy" });
+    fs.mkdirSync(path.join(tmpData, "workflows"), { recursive: true });
+    fs.writeFileSync(path.join(tmpData, "workflows", "t2i.json"), JSON.stringify({ "6": { class_type: "CLIPTextEncode", inputs: { text: "{{prompt}}" } }, "9": { class_type: "SaveImage", inputs: {} } }));
+    fs.writeFileSync(path.join(tmpData, "workflows", "edit.json"), JSON.stringify({ "6": { class_type: "CLIPTextEncode", inputs: { text: "{{prompt}}" } }, "7": { class_type: "LoadImage", inputs: { image: "{{image}}" } }, "9": { class_type: "SaveImage", inputs: {} } }));
+    const bad = enqueue({ op: "t2i", prompt: "__reject__", aspect: "1:1", count: 1, presets: [] });
+    await waitFor(() => getJob(bad.id)!.status === "error"); expect(getJob(bad.id)!.error).toMatch(/missing checkpoint/);
+    const att = await saveAttachment("in.png", "image/png", pngBuffer(16, 16));
     const e = enqueue({ op: "edit", prompt: "make it night", aspect: "1:1", count: 1, presets: [], inputAttachmentId: att.id });
-    await waitFor(() => getJob(e.id)!.status === "done");
+    await waitFor(() => getJob(e.id)!.status === "done", 8000);
+    expect(comfy.posted.at(-1)["7"].inputs.image).toBe("uploaded.png"); expect(fs.readFileSync(getJob(e.id)!.outputs[0]!.file).subarray(1, 4).toString()).toBe("PNG");
+  });
+  it("video is refused when no workflow exists for it, and v2v/edit need an uploaded input", () => {
+    expect(() => enqueue({ op: "t2v", prompt: "waves", aspect: "16:9", count: 1, duration: 3, presets: [] })).toThrow(/cannot do "t2v"/);
+    expect(() => enqueue({ op: "v2v", subop: "restyle", prompt: "x", aspect: "16:9", count: 1, presets: [], backend: "comfy" })).toThrow();
   });
   it("delete removes the row and its files", async () => {
     const j = enqueue({ op: "t2i", prompt: "x", aspect: "1:1", count: 1, presets: [] });
@@ -132,10 +156,10 @@ describe("storybook", () => {
     expect(() => validateStory({ pages: [{ text: "a" }] })).toThrow(/at least 3 pages/);
     expect(() => validateStory({ pages: [{ text: "a" }, { text: "b" }, { text: "c" }] })).toThrow(/character/);
   });
-  it("end to end with the mock backend: 10 illustrated pages and a real PDF", async () => {
+  it("end to end: 10 illustrated pages from real image files and a real PDF", async () => {
     setStubHandler(() => storyJson(10));
     const id = startStory({ premise: "A mouse who wants to visit the moon" });
-    await waitFor(() => ["done", "error"].includes(getStory(id)!.status), 10000);
+    await waitFor(() => ["done", "error"].includes(getStory(id)!.status), 25000);
     const s = getStory(id)!;
     expect(s.error).toBeUndefined(); expect(s.status).toBe("done");
     expect(s.pages).toHaveLength(10); expect(s.pages.every((pg: { image?: string }) => pg.image)).toBe(true);

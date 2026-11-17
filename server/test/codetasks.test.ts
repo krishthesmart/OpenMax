@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { freshEnv } from "./helpers.js";
-import { setStubHandler } from "../src/providers/stub.js";
+import { setStubHandler } from "./fake.js";
 import { MAX_ITERATIONS, applyEdits, cancelTask, createBranchInRepo, createTask, decidePlan, deleteTask, detectTestCommand, getTask, idle, pushTask, retryTask, validateEdits } from "../src/modules/codeagent/tasks.js";
 import { runCommand, sanitizedEnv } from "../src/modules/codeagent/exec.js";
 import { validateRemote } from "../src/modules/codeagent/git.js";

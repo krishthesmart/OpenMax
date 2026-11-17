@@ -5,7 +5,6 @@ import { buildOpenAIBody, parseOpenAIStream } from "./dialects/openai.js";
 import { buildAnthropicBody, parseAnthropicStream } from "./dialects/anthropic.js";
 import { buildOllamaBody, parseOllamaStream } from "./dialects/ollama.js";
 import { record429, recordHeaders, parseDuration } from "./limits.js";
-import { stubRun } from "./stub.js";
 
 export interface LLMResult { text: string; reasoning: string; toolCalls: ToolCall[]; tokensIn: number; tokensOut: number; ms: number; finish?: string }
 
@@ -23,15 +22,6 @@ export async function* stream(req: LLMRequest): AsyncGenerator<StreamEvent> {
   if (!p) throw new ProviderError(`Unknown provider "${provider}" in ${req.model}.`, provider, 0, undefined, "Check data/router.json.");
   if (!refAllowed(provider, model)) throw new ProviderError(`${req.model} is a paid OpenRouter model; set ENABLE_PAID=true to allow it.`, provider, 0);
   if (req.signal?.aborted) throw new DOMException("Aborted", "AbortError");
-
-  if (cfg.OPENMAX_STUB) {
-    const r = await stubRun(req, provider, model);
-    if (r.text) yield { type: "text", text: r.text };
-    for (const c of r.toolCalls ?? []) yield { type: "tool_call", call: c };
-    yield { type: "usage", tokensIn: r.tokensIn ?? 0, tokensOut: r.tokensOut ?? 0 };
-    yield { type: "done", finish: "stop" };
-    return;
-  }
 
   const key = p.apiKey();
   if (!p.local && !key) throw new ProviderError(`${p.label} has no API key.`, provider, 401, undefined, p.fixHint);
@@ -87,6 +77,24 @@ export async function complete(req: LLMRequest): Promise<LLMResult> {
   return out;
 }
 
+/** Close an unterminated string and any open brackets so output cut off by max tokens still parses. */
+export function repairTruncatedJSON(text: string): string | undefined {
+  const start = text.search(/[{[]/); if (start < 0) return undefined;
+  const stack: string[] = []; let inStr = false, esc = false, lastGood = -1;
+  for (let i = start; i < text.length; i++) {
+    const c = text[i]!;
+    if (inStr) { if (esc) esc = false; else if (c === "\\") esc = true; else if (c === '"') { inStr = false; lastGood = i; } continue; }
+    if (c === '"') inStr = true;
+    else if (c === "{") stack.push("}"); else if (c === "[") stack.push("]");
+    else if (c === "}" || c === "]") { if (stack.pop() !== c) return undefined; lastGood = i; if (!stack.length) return text.slice(start, i + 1); }
+    else if (c === "," || c === ":" || /[\d\]el]/.test(c)) lastGood = i;
+  }
+  if (!stack.length) return undefined;
+  let body = inStr ? text.slice(start) + '"' : text.slice(start, lastGood + 1 || undefined);
+  body = body.replace(/,\s*"[^"]*"\s*$/, "").replace(/,\s*$/, "").replace(/:\s*$/, ": null");
+  return body + [...stack].reverse().join("");
+}
+
 /** Lenient JSON extraction: fenced blocks, surrounding prose, trailing commas, single quotes. */
 export function extractJSON<T = unknown>(text: string): T | undefined {
   const candidates: string[] = [];
@@ -96,7 +104,7 @@ export function extractJSON<T = unknown>(text: string): T | undefined {
   for (const c of candidates) {
     for (const open of ["{", "["]) {
       const close = open === "{" ? "}" : "]";
-      let start = c.indexOf(open);
+      let start = c.indexOf(open); let first = true;
       while (start >= 0) {
         const end = c.lastIndexOf(close);
         if (end <= start) break;
@@ -104,11 +112,14 @@ export function extractJSON<T = unknown>(text: string): T | undefined {
         for (const s of [slice, slice.replace(/,\s*([}\]])/g, "$1")]) {
           try { return JSON.parse(s) as T; } catch { /* next */ }
         }
+        if (first) { first = false; const fx = repairTruncatedJSON(c.slice(start)); if (fx) { for (const s2 of [fx, fx.replace(/,\s*([}\]])/g, "$1")]) { try { return JSON.parse(s2) as T; } catch { /* keep scanning */ } } } }
         start = c.indexOf(open, start + 1);
         if (start > 0 && end - start < 2) break;
       }
     }
   }
+  const fixed = repairTruncatedJSON(text);
+  if (fixed) { for (const s2 of [fixed, fixed.replace(/,\s*([}\]])/g, "$1")]) { try { return JSON.parse(s2) as T; } catch { /* give up */ } } }
   return undefined;
 }
 

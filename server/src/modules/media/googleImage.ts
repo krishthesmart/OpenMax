@@ -32,7 +32,7 @@ export const googleImageBackend: MediaBackend = {
       ctx.progress(i / ctx.seeds.length, `Gemini image ${i + 1}/${ctx.seeds.length}`);
       const parts: any[] = [{ text: ctx.prompt + (ctx.negative ? `\nAvoid: ${ctx.negative}` : "") + `\nAspect ratio ${ctx.params.aspect}.` }];
       for (const p of [ctx.inputPath, ctx.refImagePath]) if (p) parts.push({ inlineData: { mimeType: /\.jpe?g$/i.test(p) ? "image/jpeg" : "image/png", data: fs.readFileSync(p).toString("base64") } });
-      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+      const r = await fetch(`${cfg.GEMINI_NATIVE_URL}/models/${model}:generateContent`, {
         method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": cfg.GEMINI_API_KEY },
         body: JSON.stringify({ contents: [{ parts }], generationConfig: { responseModalities: ["IMAGE", "TEXT"], seed: ctx.seeds[i] } }), signal: ctx.signal,
       });

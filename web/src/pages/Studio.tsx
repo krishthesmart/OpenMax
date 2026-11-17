@@ -45,7 +45,6 @@ function Generate() {
         <div><div className="label mb-1">Backend</div>
           <select className="input" value={backend} onChange={(e) => setBackend(e.target.value)}>{be.data?.backends.map((b: any) => <option key={b.id} value={b.id}>{b.label}{b.status.ok ? "" : " (unavailable)"}</option>)}</select>
           {cur && !cur.status.ok && <p className="mt-1 text-[12px] text-warn">{cur.status.detail}</p>}
-          {cur?.id === "mock" && <p className="mt-1 text-[12px] text-faint">Mock draws SVG placeholders so you can try the whole flow without a GPU. Set MEDIA_PROVIDER=comfy for real output.</p>}
         </div>
         <div><div className="label mb-1">Operation</div>
           <div className="flex flex-wrap gap-1.5">{Object.keys(OP_LABEL).map((k) => { const s = ops[k]; const off = s && !s.supported; return <button key={k} title={off ? s.reason : ""} disabled={off} onClick={() => setOp(k)} className={`btn !py-1 ${op === k ? "btn-primary" : ""}`}>{OP_LABEL[k]}</button>; })}</div>
@@ -67,7 +66,7 @@ function Generate() {
           <div className="col-span-2"><div className="label mb-1">Seed</div><div className="flex gap-2"><input className="input" type="number" placeholder="random" value={seed} onChange={(e) => setSeed(e.target.value === "" ? "" : Number(e.target.value))} /><button className="btn" onClick={() => setSeed(Math.floor(Math.random() * 1e9))}>🎲</button></div></div>
         </div>
         {err && <div className="rounded-xl border border-bad/40 bg-bad/10 p-3 text-[13px]"><div className="text-bad">{err.message}</div>{err.fix && <div className="mt-1 text-dim">{err.fix}</div>}</div>}
-        <button className="btn btn-primary w-full justify-center !py-2.5" disabled={busy || !!opHint || (!prompt.trim() && !(op === "v2v" && subop === "extend")) || (needsInput && !input)} onClick={submit}>Generate</button>
+        <button className="btn btn-primary w-full justify-center !py-2.5" disabled={busy || !!opHint || (!!cur && !cur.status.ok) || (!prompt.trim() && !(op === "v2v" && subop === "extend")) || (needsInput && !input)} onClick={submit}>Generate</button>
       </div>
 
       <div className="min-w-0 flex-1 overflow-y-auto p-4">

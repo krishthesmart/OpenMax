@@ -128,7 +128,7 @@ export function Wizard({ onClose }: { onClose: () => void }) {
           {step === 4 && s && (
             <div className="space-y-2">
               <div className="card p-3"><b>Web search</b> ({s.search.backend}) <span className={s.search.ok ? "text-good" : "text-warn"}>● {s.search.ok ? "ready" : s.search.detail}</span>{!s.search.ok && <p className="mt-1 text-[12px] text-dim">Run <code>docker compose up -d searxng</code>, or set SEARCH_BACKEND=brave and BRAVE_API_KEY.</p>}</div>
-              <div className="card p-3"><b>Image & video</b> ({s.media.backend}) <span className={s.media.ok ? "text-good" : "text-warn"}>● {s.media.ok ? "ready" : s.media.detail}</span><p className="mt-1 text-[12px] text-dim">Studio works with SVG placeholders (mock) out of the box. For real generation run ComfyUI and set MEDIA_PROVIDER=comfy (see README).</p></div>
+              <div className="card p-3"><b>Image & video</b> ({s.media.backend}) <span className={s.media.ok ? "text-good" : "text-warn"}>● {s.media.ok ? "ready" : s.media.detail}</span><p className="mt-1 text-[12px] text-dim">Image generation needs ComfyUI (local GPU) or a Gemini API key (free tier). Video and editing need ComfyUI workflows (see README).</p></div>
             </div>
           )}
           {step === 5 && (

@@ -8,7 +8,7 @@ Gate for every phase: `npm run typecheck && npm test && npm run build` pass, the
 ## Phase checklist
 
 - [x] 1. Scaffold (npm workspaces: server + web), config (.env + zod), SQLite DB + migrations + sqlite-vec,
-      provider registry (free + paid-hidden + stub), LLM interface (openai-compatible / anthropic / ollama dialects,
+      provider registry (free + paid-hidden), LLM interface (openai-compatible / anthropic / ollama dialects,
       stream / complete / completeJSON, tool calls + JSON-action fallback), model discovery + 1-token pings,
       `GET /api/health`, `POST /api/providers/test`
 - [x] 2. Router: heuristic classifier + groq LLM classifier, lanes from data/router.json, fallback on error/429,
@@ -20,7 +20,7 @@ Gate for every phase: `npm run typecheck && npm test && npm run build` pass, the
 - [x] 4. Research: plan → parallel search → dedupe → fetch → (deep) gap round → cited synthesis, step log, follow-ups
 - [x] 5. Code: workspace tree with path-escape protection, Monaco, explain/fix/refactor/tests/docs/custom →
       ```file block → diff view → Apply/Reject
-- [x] 6. Studio: mock / comfy / fal / free-provider image backends, t2i/i2v/t2v/v2v/edit, ~18 presets, controls,
+- [x] 6. Studio: comfy / fal / Gemini image backends, t2i/i2v/t2v/v2v/edit, ~18 presets, controls,
       job queue + GPU scheduler, gallery, remix, delete; Storybook (10 pages → PDF)
 - [x] 7. Notebook: sources (PDF/URL/text/YouTube), grounded chat with citations, audio overview (script → TTS →
       ffmpeg MP3 + chapters), study guide/FAQ/timeline, quiz + flashcards (SM-2), mind map, slides (.pptx)

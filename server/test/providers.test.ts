@@ -1,11 +1,11 @@
 import { describe, expect, it, beforeEach } from "vitest";
-import { extractJSON, complete, completeJSON, stream } from "../src/providers/llm.js";
+import { extractJSON, repairTruncatedJSON, complete, completeJSON, stream } from "../src/providers/llm.js";
 import { parseModelList, classifyKind, guessSizeB } from "../src/providers/discovery.js";
 import { buildOpenAIBody, parseOpenAIStream } from "../src/providers/dialects/openai.js";
 import { buildAnthropicBody, parseAnthropicStream } from "../src/providers/dialects/anthropic.js";
 import { buildOllamaBody, parseOllamaStream } from "../src/providers/dialects/ollama.js";
 import { providerEnabled, getProvider, refAllowed, visibleProviders } from "../src/providers/registry.js";
-import { setStubHandler, stubFail } from "../src/providers/stub.js";
+import { setStubHandler, stubFail } from "./fake.js";
 import { ProviderError } from "../src/providers/types.js";
 import { freshEnv } from "./helpers.js";
 
@@ -18,6 +18,16 @@ describe("extractJSON", () => {
     expect(extractJSON('here: {"task":"code","reason":"x"} thanks')).toEqual({ task: "code", reason: "x" });
     expect(extractJSON("[1,2,3]")).toEqual([1, 2, 3]);
     expect(extractJSON("no json here")).toBeUndefined();
+  });
+});
+
+describe("truncated JSON repair (small models cut off at max tokens)", () => {
+  it("closes strings and brackets, drops dangling commas/keys", () => {
+    expect(extractJSON('{"cards":[{"front":"a","back":"b"},{"front":"c","back":"d')).toEqual({ cards: [{ front: "a", back: "b" }, { front: "c", back: "d" }] });
+    expect(extractJSON('{"a":[1,2,3,')).toEqual({ a: [1, 2, 3] });
+    expect(extractJSON('{"a":1,"b":')).toEqual({ a: 1, b: null });
+    expect(repairTruncatedJSON("no json")).toBeUndefined();
+    expect(extractJSON('{"ok":true}')).toEqual({ ok: true });
   });
 });
 

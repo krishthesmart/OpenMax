@@ -35,6 +35,15 @@ export function validateQuiz(v: any) {
   if (qs.length < 2) throw new Error("The model did not produce a usable quiz. Try again.");
   return { questions: qs };
 }
+/** Pull front/back pairs out of raw text when the JSON structure is broken (small models often flatten or repeat them). */
+export function cardPairs(raw: string) {
+  const seen = new Set<string>(); const cards: { front: string; back: string }[] = [];
+  for (const m of raw.matchAll(/"front"\s*:\s*"((?:[^"\\]|\\.)*)"\s*,\s*"back"\s*:\s*"((?:[^"\\]|\\.)*)"/g)) {
+    const front = s(JSON.parse(`"${m[1]}"`), 400), back = s(JSON.parse(`"${m[2]}"`), 600);
+    if (front && back && front !== back && !seen.has(front)) { seen.add(front); cards.push({ front, back }); }
+  }
+  return cards;
+}
 export function validateCards(v: any) {
   const cards = arr<any>(v?.cards).map((c) => ({ front: s(c.front ?? c.q, 400), back: s(c.back ?? c.a, 600) })).filter((c) => c.front && c.back);
   if (cards.length < 2) throw new Error("The model did not produce usable flashcards. Try again.");
@@ -139,7 +148,7 @@ export async function buildAudio(script: AudioScript, outBase: string, opts: { f
   const hasFfmpeg = !opts.forceNoFfmpeg && (await ffmpegAvailable());
   const work = fs.mkdtempSync(path.join(path.dirname(outBase), "au-"));
   try {
-    const wavs: string[] = []; const lineChapter: number[] = []; let backend = "mock", n = 0;
+    const wavs: string[] = []; const lineChapter: number[] = []; let backend = "unknown", n = 0;
     for (const [ci, ch] of script.chapters.entries()) {
       for (const line of ch.lines) {
         const r = await synthesize(line.text, line.speaker === "A" ? "host_a" : "host_b"); backend = r.backend;
@@ -187,7 +196,13 @@ export async function generate(nid: string, kind: GenKind, opts: { focus?: strin
   else if (kind === "timeline") { title = "Timeline"; data = await genJSON(nid, "research", `Extract a chronological timeline of dated events from the sources (use the dates as written). ${only} Format: {"events":[{"when":"...","what":"..."}]}`, user, validateTimeline); }
   else if (kind === "quiz") { title = "Quiz"; data = await genJSON(nid, "research", `Write ${opts.count ?? 8} multiple-choice questions testing understanding of the sources: 4 options each, exactly one correct, plus a one-sentence explanation. ${only} Format: {"questions":[{"q":"...","options":["a","b","c","d"],"answer":0,"explanation":"..."}]} where "answer" is the 0-based index.`, user, validateQuiz); }
   else if (kind === "flashcards") {
-    title = "Flashcards"; data = await genJSON(nid, "research", `Write ${opts.count ?? 12} flashcards (term/question on the front, concise answer on the back) covering the key facts. ${only} Format: {"cards":[{"front":"...","back":"..."}]}`, user, validateCards);
+    title = "Flashcards";
+    const fsys = `Write ${opts.count ?? 12} flashcards (term/question on the front, concise answer on the back) covering the key facts. ${only} Format: {"cards":[{"front":"...","back":"..."}]}`;
+    try { data = await genJSON(nid, "research", fsys, user, validateCards, 2500); }
+    catch (e) {
+      const raw = await routedComplete({ task: "research", private: book.private, purpose: "notebook-gen", temperature: 0.4, maxTokens: 1800, json: true, messages: [{ role: "system", content: fsys }, { role: "user", content: user }] });
+      const cards = cardPairs(raw.text); if (cards.length < 2) throw e; data = { cards };
+    }
     const ins = getDb().prepare("INSERT INTO cards(id,notebook_id,front,back,due) VALUES(?,?,?,?,?)");
     getDb().transaction(() => data.cards.forEach((c: any) => ins.run(uid("cd_"), nid, c.front, c.back, now())))();
   } else if (kind === "mindmap") { title = "Mind map"; data = await genJSON(nid, "research", `Create a mind map of the sources: a central topic, 4-7 main branches, each with 2-5 sub-points (max depth 3). ${only} Format: {"title":"...","children":[{"title":"...","children":[{"title":"..."}]}]}`, user, validateMindmap); }

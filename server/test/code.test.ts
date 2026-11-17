@@ -5,7 +5,7 @@ import path from "node:path";
 import { freshEnv } from "./helpers.js";
 import { deletePath, listTree, readFile, safeResolve, writeFile } from "../src/modules/workspace.js";
 import { buildCodeMessages, parseFileBlock, proseOutside, runCodeAction } from "../src/modules/codeActions.js";
-import { setStubHandler } from "../src/providers/stub.js";
+import { setStubHandler } from "./fake.js";
 
 const base = fs.mkdtempSync(path.join(os.tmpdir(), "om-ws-"));
 const root = path.join(base, "ws"); const outside = path.join(base, "outside");

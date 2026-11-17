@@ -5,7 +5,7 @@ import path from "node:path";
 import { freshEnv } from "./helpers.js";
 import { setConfigForTest } from "../src/config.js";
 import { getDb } from "../src/db.js";
-import { setStubHandler } from "../src/providers/stub.js";
+import { setStubHandler } from "./fake.js";
 import { ProviderError } from "../src/providers/types.js";
 import { TOOLS, executeTool, type ToolContext } from "../src/modules/agent/tools.js";
 import { decide, getApproval, listApprovals } from "../src/modules/agent/approvals.js";

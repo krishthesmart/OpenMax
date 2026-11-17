@@ -1,11 +1,12 @@
 import { cfg } from "../config.js";
+import { backendsInfo } from "./media/index.js";
+
+export const NO_IMAGE_BACKEND = "No image backend is available. Start ComfyUI (local GPU), or add a Gemini API key (GEMINI_API_KEY, free tier) to use Gemini image generation.";
+
+/** Summary for /api/health: the backend that would be used for a new image right now. */
 export async function mediaStatus(): Promise<{ backend: string; ok: boolean; detail?: string }> {
-  const b = cfg.MEDIA_PROVIDER;
-  if (b === "mock") return { backend: "mock", ok: true, detail: "SVG placeholders; no GPU needed" };
-  if (b === "comfy") {
-    try { const r = await fetch(`${cfg.COMFY_URL}/system_stats`, { signal: AbortSignal.timeout(1500) }); return { backend: "comfy", ok: r.ok }; }
-    catch { return { backend: "comfy", ok: false, detail: "ComfyUI not reachable" }; }
-  }
-  if (b === "fal") return { backend: "fal", ok: !!cfg.FAL_KEY, detail: cfg.FAL_KEY ? undefined : "FAL_KEY missing" };
-  return { backend: b, ok: false, detail: "unknown MEDIA_PROVIDER" };
+  const info = await backendsInfo();
+  const def = info.backends.find((b) => b.default) ?? info.backends[0]!;
+  if (!def.status.ok && def.id === "comfy" && !cfg.GEMINI_API_KEY && cfg.MEDIA_PROVIDER === "auto") return { backend: "none", ok: false, detail: NO_IMAGE_BACKEND };
+  return { backend: def.id, ok: def.status.ok, detail: def.status.detail };
 }

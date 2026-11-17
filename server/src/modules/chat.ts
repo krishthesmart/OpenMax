@@ -198,10 +198,10 @@ export async function* chatTurn(body: SendBody, signal?: AbortSignal): AsyncGene
 const stripArtifactsForContext = (t: string) => t;
 
 export async function makeTitle(user: string, assistant: string, localOnly: boolean): Promise<string> {
-  if (cfg.OPENMAX_STUB) return user.replace(/\s+/g, " ").slice(0, 40);
   const r = await completeWithRefs(getRouterConfig().titles, {
     messages: [{ role: "system", content: "Write a 3-6 word title for this conversation. Reply with the title only: no quotes, no trailing punctuation." }, { role: "user", content: `User: ${user.slice(0, 400)}\nAssistant: ${stripArtifacts(assistant).slice(0, 400)}` }],
     maxTokens: 24, temperature: 0.3,
   }, { localOnly, purpose: "title" });
-  return r.text.replace(/^["'\s]+|["'.\s]+$/g, "").slice(0, 80) || user.slice(0, 40);
+  const line = r.text.split("\n").map((l) => l.replace(/^["'#*\s]+|["'.\s]+$/g, "")).find((l) => l.length > 2 && !/[{};=<>()]/.test(l)); // small models sometimes answer with code
+  return (line ?? "").slice(0, 60) || user.replace(/\s+/g, " ").slice(0, 40);
 }

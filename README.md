@@ -9,7 +9,7 @@ It is original code written from scratch. It is not affiliated with, and does no
 | **Chat** | Conversations with branching (edit, regenerate, siblings), artifacts (code, docs, HTML, SVG, React rendered in a sandbox), memories, Gems (reusable assistants with private knowledge bases), attachments (images, PDFs, audio), push-to-talk voice |
 | **Research** | Plans 2–5 searches, reads the best pages, writes a cited answer with source cards and follow-ups; deep mode adds a gap-analysis round |
 | **Notebook** | Chat grounded only in your sources (PDF, URL, YouTube transcript, text) with clickable citations; study guide, FAQ, timeline, quiz, spaced-repetition flashcards, mind map, `.pptx` slides, two-host audio overview |
-| **Studio** | Text→image, image→video, text→video, video→video, image edit through mock / ComfyUI / fal / Gemini image backends; 18 motion and style presets; job queue, gallery, remix; 10-page illustrated Storybook exported to PDF |
+| **Studio** | Text→image, image→video, text→video, video→video, image edit through ComfyUI / Gemini image / fal backends; 18 motion and style presets; job queue, gallery, remix; 10-page illustrated Storybook exported to PDF |
 | **Code** | File tree with path-escape protection, Monaco editor, explain/fix/refactor/tests/docs with a diff view and Apply/Reject |
 | **Code tasks** | Hand off a task: sandbox clone → plan you approve → edits → tests (timeout) → up to 5 iterations → local branch and diff. Never pushes unless you click |
 | **Canvas** | A document or program you and the model edit together via structured patches, with suggestions, tone/length controls, version history and live preview |
@@ -44,7 +44,7 @@ Then check your real setup from the terminal:
 
 ```bash
 npm run live-check      # pings your real providers and prints which lane resolves to which model
-npm run smoke           # full end-to-end test against stub providers and a local test page
+npm run smoke           # end-to-end test against REAL services: Ollama, web search, a real browser, real SMTP, real speech
 ```
 
 Other ways to run:
@@ -104,7 +104,7 @@ Tasks: `code`, `reasoning`, `research`, `realtime`, `creative`, `vision`, `multi
 
 ## Search, ComfyUI and other services
 
-**SearXNG (web search).** `docker compose up -d searxng` uses `searxng/settings.yml`, which enables the JSON format OpenMax needs and binds to localhost. Change its `secret_key`. Or skip it: set `SEARCH_BACKEND=brave` and `BRAVE_API_KEY=…`. Without any search backend, Research and realtime answers tell you how to fix it instead of failing silently.
+**Web search.** `SEARCH_BACKEND=auto` tries, in order: SearXNG (if running), Brave (if `BRAVE_API_KEY` is set), DuckDuckGo (only if it answers automated requests; it usually returns a bot challenge), then Wikipedia. Wikipedia always works but only covers encyclopedic topics, and the UI says when that is what you are getting. For real general web search run SearXNG (`docker compose up -d searxng`; `searxng/settings.yml` enables the JSON format OpenMax needs and binds to localhost; change its `secret_key`) or get a free Brave Search API key.
 
 **ComfyUI (real image/video).**
 
@@ -113,9 +113,9 @@ Tasks: `code`, `reasoning`, `research`, `realtime`, `creative`, `vision`, `multi
 3. Image→video, text→video, video→video and image-edit need workflows that match *your* nodes and models. In ComfyUI use **Save (API Format)**, replace the values Studio should control with `{{prompt}} {{negative}} {{seed}} {{width}} {{height}} {{frames}} {{image}} {{video}}`, and save as `data/workflows/i2v.json`, `t2v.json`, `v2v.json` or `edit.json`. Studio greys out any operation whose file is missing and says why. Details: `data/workflows/README.md`.
 4. GPU jobs are exclusive (one at a time); after the queue drains OpenMax asks ComfyUI to unload its checkpoints so your LLMs have the memory back. The hot Ollama model stays loaded.
 
-Free image generation without a GPU: if your Gemini key lists an image-capable model, Studio offers a "Gemini image" backend automatically (stills only; see `data/media.json`).
+Image generation without a GPU: if your Gemini key lists an image-capable model, Studio uses a "Gemini image" backend automatically (stills only; see `data/media.json`). There is no mock or placeholder backend: with neither ComfyUI nor a Gemini key, Studio says what to set up and refuses jobs. (A free keyless hosted generator was evaluated and dropped because it now requires payment for new prompts.)
 
-**Speech.** Text-to-speech uses Kokoro (HTTP) → Piper → macOS `say` → a silent placeholder, whichever works first (`TTS_BACKEND` forces one). Speech-to-text uses whisper.cpp (`WHISPER_BIN`, `WHISPER_MODEL`) or Groq's hosted Whisper if you have a Groq key. For audio overviews, a working `ffmpeg` gives MP3 with embedded chapters; without one OpenMax writes a WAV and shows the chapters in the player.
+**Speech.** Text-to-speech uses Kokoro (HTTP) → Piper → macOS `say`, whichever works first (`TTS_BACKEND` forces one); if none is available you get a message saying how to install one, never silent audio. Speech-to-text uses whisper.cpp (`WHISPER_BIN`, `WHISPER_MODEL`) or Groq's hosted Whisper if you have a Groq key. For audio overviews, a working `ffmpeg` gives MP3 with embedded chapters; without one OpenMax writes a WAV and shows the chapters in the player.
 
 **Agent browser.** Playwright needs a Chromium: `npx playwright install chromium` once (OpenMax will also use any Playwright Chromium already on your machine).
 
@@ -138,7 +138,7 @@ npm run typecheck      # server + web
 npm test               # vitest: classifier, lanes, fallback, 429 cooldown, privacy, discovery parsing, Think judge,
                        # artifacts, canvas patches, notebook grounding, path safety, approval gates, meter math, …
 npm run build          # web (Vite) then server (tsc)
-npm run smoke          # end-to-end over HTTP with stub providers + MEDIA_PROVIDER=mock + a local test page
+npm run smoke          # end-to-end over HTTP against real services (needs Ollama running with a model)
 npm run live-check     # your real providers
 ```
 

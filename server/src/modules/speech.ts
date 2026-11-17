@@ -15,7 +15,6 @@ const has = async (bin: string) => { try { await exec("which", [bin]); return tr
 
 // ───────── Speech to text ─────────
 export async function transcribe(buf: Buffer, filename = "audio.webm", mime = "audio/webm"): Promise<{ text: string; backend: string }> {
-  if (cfg.OPENMAX_STUB) return { text: "[transcribed audio]", backend: "stub" };
   if (cfg.WHISPER_MODEL && (await has(cfg.WHISPER_BIN))) {
     const inp = tmp(path.extname(filename) || ".webm"), wav = tmp(".wav");
     fs.writeFileSync(inp, buf);
@@ -43,25 +42,16 @@ export async function transcribe(buf: Buffer, filename = "audio.webm", mime = "a
 }
 
 // ───────── Text to speech ─────────
-export type TtsBackend = "kokoro" | "piper" | "say" | "mock";
+export type TtsBackend = "kokoro" | "piper" | "say" | "none";
 export async function ttsBackend(): Promise<TtsBackend> {
   const want = cfg.TTS_BACKEND;
   if (want !== "auto") return want as TtsBackend;
-  if (cfg.OPENMAX_STUB) return "mock";
   try { const r = await fetch(`${cfg.KOKORO_URL.replace(/\/v1$/, "")}/health`, { signal: AbortSignal.timeout(800) }); if (r.ok || r.status === 404) return "kokoro"; } catch { /* not running */ }
   if (cfg.PIPER_MODEL && (await has(cfg.PIPER_BIN))) return "piper";
   if (process.platform === "darwin" && (await has("say"))) return "say";
-  return "mock";
+  return "none";
 }
 export const VOICES = { host_a: { kokoro: "af_heart", say: "Samantha" }, host_b: { kokoro: "am_michael", say: "Daniel" } };
-
-function silentWav(seconds: number): Buffer {
-  const rate = 8000, n = Math.max(1, Math.round(seconds * rate)), data = Buffer.alloc(n * 2);
-  const h = Buffer.alloc(44);
-  h.write("RIFF", 0); h.writeUInt32LE(36 + data.length, 4); h.write("WAVEfmt ", 8); h.writeUInt32LE(16, 16); h.writeUInt16LE(1, 20); h.writeUInt16LE(1, 22);
-  h.writeUInt32LE(rate, 24); h.writeUInt32LE(rate * 2, 28); h.writeUInt16LE(2, 32); h.writeUInt16LE(16, 34); h.write("data", 36); h.writeUInt32LE(data.length, 40);
-  return Buffer.concat([h, data]);
-}
 
 export async function synthesize(text: string, voice: "host_a" | "host_b" = "host_a"): Promise<{ audio: Buffer; mime: string; backend: TtsBackend }> {
   const clean = text.replace(/[*_`#>]/g, "").replace(/\s+/g, " ").trim().slice(0, 4000);
@@ -83,5 +73,5 @@ export async function synthesize(text: string, voice: "host_a" | "host_b" = "hos
     const audio = fs.readFileSync(wav); fs.rmSync(wav, { force: true });
     return { audio, mime: "audio/wav", backend };
   }
-  return { audio: silentWav(Math.min(8, clean.length / 15)), mime: "audio/wav", backend: "mock" };
+  throw Object.assign(new Error("No text-to-speech engine is available."), { fix: "On macOS the built-in `say` voice works automatically. Elsewhere install Piper (set PIPER_BIN and PIPER_MODEL) or run a Kokoro server (KOKORO_URL)." });
 }

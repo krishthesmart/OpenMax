@@ -41,7 +41,7 @@ function Output({ nid, id, onClose }: { nid: string; id: string; onClose: () => 
           <div><audio ref={audio} controls className="w-full" src={fileUrl} />
             <div className="label mb-1 mt-3">Chapters</div>
             {d.chapters.map((c: any, k: number) => <button key={k} className="mb-1 flex w-full items-center gap-2 rounded-lg border border-line px-3 py-1.5 text-left hover:border-accent/60" onClick={() => { if (audio.current) { audio.current.currentTime = c.start; void audio.current.play(); } }}><span className="font-mono text-[11px] text-accent">{Math.floor(c.start / 60)}:{String(Math.floor(c.start % 60)).padStart(2, "0")}</span>{c.title}</button>)}
-            <p className="mt-2 text-[11px] text-faint">Voice: {d.ttsBackend}{d.ttsBackend === "mock" ? " (silent placeholder; install Piper/Kokoro or run on macOS for spoken audio)" : ""} · {d.encoder}</p>
+            <p className="mt-2 text-[11px] text-faint">Voice: {d.ttsBackend}· {d.encoder}</p>
             <details className="mt-3"><summary className="cursor-pointer text-dim">Script</summary>{d.script.chapters.map((c: any, k: number) => <div key={k} className="mt-2"><div className="font-medium">{c.title}</div>{c.lines.map((l: any, i: number) => <p key={i}><b className={l.speaker === "A" ? "text-accent" : "text-accent2"}>{l.speaker}:</b> {l.text}</p>)}</div>)}</details></div>
         )}
       </div>

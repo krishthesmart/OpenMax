@@ -3,7 +3,9 @@ import fs from "node:fs";
 import { z } from "zod";
 import { addRoutes } from "../app.js";
 import { HttpError, friendlyError } from "../util/errors.js";
-import { backendsInfo, deleteJob, enqueue, getJob, jobNote, listJobs, mediaFilePath, OPS, PRESETS, SUBOPS } from "../modules/media/index.js";
+import { backendsInfo, defaultBackendId, deleteJob, enqueue, getBackend, getJob, jobNote, listJobs, mediaFilePath, OPS, PRESETS, refreshReachability, SUBOPS } from "../modules/media/index.js";
+import { NO_IMAGE_BACKEND } from "../modules/mediaStatus.js";
+import { cfg } from "../config.js";
 import { deleteStory, getStory, listStories, startStory, storyFile, storyPdfPath } from "../modules/media/story.js";
 import { routedComplete } from "../router/router.js";
 
@@ -18,6 +20,10 @@ export function registerStudio(app: FastifyInstance) {
       aspect: z.string().default("1:1"), duration: z.number().optional(), count: z.number().int().default(1), presets: z.array(z.string()).default([]),
       inputAttachmentId: z.string().optional(), backend: z.string().optional(),
     }).parse(req.body);
+    await refreshReachability();
+    const be = getBackend(b.backend ?? defaultBackendId());
+    const st = be ? await be.status() : undefined;
+    if (be && !st!.ok) return reply.code(503).send({ error: `${be.label} is not available: ${st!.detail ?? "unreachable"}`, fix: be.id === "comfy" && !cfg.GEMINI_API_KEY ? NO_IMAGE_BACKEND : st!.detail });
     try { return { job: enqueue(b) }; }
     catch (e: any) { return reply.code(e.status ?? 400).send({ error: e.message, fix: e.fix }); }
   });
@@ -35,7 +41,12 @@ export function registerStudio(app: FastifyInstance) {
     return { prompt: r.text.replace(/^["'\s]+|["'\s]+$/g, "") };
   });
 
-  app.post("/api/studio/story", async (req) => { const b = z.object({ premise: z.string().min(5), style: z.string().optional(), backend: z.string().optional() }).parse(req.body); return { id: startStory(b) }; });
+  app.post("/api/studio/story", async (req, reply) => {
+    const b = z.object({ premise: z.string().min(5), style: z.string().optional(), backend: z.string().optional() }).parse(req.body);
+    await refreshReachability(); const be = getBackend(b.backend ?? defaultBackendId()); const st = be ? await be.status() : undefined;
+    if (be && !st!.ok) return reply.code(503).send({ error: `${be.label} is not available: ${st!.detail ?? "unreachable"}`, fix: be.id === "comfy" && !cfg.GEMINI_API_KEY ? NO_IMAGE_BACKEND : st!.detail });
+    return { id: startStory(b) };
+  });
   app.get("/api/studio/story", async () => ({ stories: listStories() }));
   app.get("/api/studio/story/:id", async (req) => { const s = getStory((req.params as any).id); if (!s) throw new HttpError(404, "Story not found."); return { story: s }; });
   app.delete("/api/studio/story/:id", async (req) => { deleteStory((req.params as any).id); return { ok: true }; });

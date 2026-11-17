@@ -5,7 +5,7 @@ import { closeDb, openDb } from "../src/db.js";
 import { setConfigForTest } from "../src/config.js";
 import { overrideRouterConfigForTest, RouterConfigSchema } from "../src/router/config.js";
 import { resetLimits } from "../src/providers/limits.js";
-import { stubReset } from "../src/providers/stub.js";
+import { stubReset } from "./fake.js";
 
 export const testRouterConfig = () => RouterConfigSchema.parse({
   classifier: ["groq:fast", "ollama:small"], judge: ["google:judge"], titles: ["groq:fast"], embeddings: ["nvidia:emb"], toolProbe: ["nvidia:tooly"],
@@ -27,7 +27,7 @@ process.on("exit", () => { for (const d of dirs) { try { fs.rmSync(d, { recursiv
 export function freshEnv(over: Record<string, unknown> = {}) {
   closeDb(); resetLimits(); stubReset();
   const data = fs.mkdtempSync(path.join(os.tmpdir(), "om-test-data-")); dirs.push(data);
-  setConfigForTest({ OPENMAX_STUB: true, DATA_DIR: data, NVIDIA_API_KEY: "k", GEMINI_API_KEY: "k", OPENROUTER_API_KEY: "k", GROQ_API_KEY: "k", ...over });
+  setConfigForTest({ DATA_DIR: data, MEDIA_PROVIDER: "comfy", SEARCH_BACKEND: "searxng", NVIDIA_API_KEY: "k", GEMINI_API_KEY: "k", OPENROUTER_API_KEY: "k", GROQ_API_KEY: "k", ANTHROPIC_API_KEY: "k", OPENAI_API_KEY: "k", XAI_API_KEY: "k", GEMINI_PAID_API_KEY: "k", DEEPSEEK_API_KEY: "k", META_API_KEY: "k", ...over });
   openDb(":memory:");
   overrideRouterConfigForTest(testRouterConfig());
 }

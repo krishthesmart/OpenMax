@@ -38,7 +38,7 @@ export const resetEmbedCache = () => { working = undefined; };
 /** Embed with the first working model in router.json; falls back to a deterministic hashed bag-of-words. */
 export async function embed(texts: string[], kind: "passage" | "query" = "passage", opts: { localOnly?: boolean } = {}): Promise<EmbedResult> {
   if (!texts.length) return { vectors: [], model: "none", dim: 0 };
-  if (!cfg.OPENMAX_STUB) {
+  {
     const refs = getRouterConfig().embeddings.filter((r) => {
       const p = getProvider(splitRef(r).provider);
       return p && providerEnabled(p) && (!opts.localOnly || p.local) && cooldownRemaining(p.id) === 0;

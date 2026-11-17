@@ -12,10 +12,10 @@ export function buildOllamaBody(req: LLMRequest, model: string) {
     return o;
   });
   const body: Record<string, unknown> = { model, messages, stream: true, keep_alive: req.keepAlive ?? "30m" };
-  const options: Record<string, unknown> = {};
+  const options: Record<string, unknown> = { repeat_penalty: 1.12 };
   if (req.temperature !== undefined) options.temperature = req.temperature;
   if (req.maxTokens) options.num_predict = req.maxTokens;
-  if (Object.keys(options).length) body.options = options;
+  body.options = options;
   if (req.json) body.format = "json";
   if (req.tools?.length) body.tools = req.tools.map((t) => ({ type: "function", function: { name: t.name, description: t.description, parameters: t.parameters } }));
   return body;

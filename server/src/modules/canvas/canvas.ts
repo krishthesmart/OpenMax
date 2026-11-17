@@ -71,6 +71,21 @@ export async function editWithInstruction(id: string, instruction: string, o: { 
     last = [...dropped, ...res.errors, ...(ops.length ? [] : ["no valid operations returned"])];
     messages = [...base, { role: "assistant", content: JSON.stringify(value) }, { role: "user", content: `Those operations could not be applied: ${last.join("; ")}. Return corrected JSON (the document is unchanged).` }];
   }
+  // Structured ops failed twice (common with small models): fall back to asking for the complete revised document.
+  try {
+    const r = await routedComplete({ task: c.kind === "markdown" ? "creative" : "code", private: o.localOnly, purpose: "canvas-rewrite", signal: o.signal, temperature: 0.2, maxTokens: 6000, messages: [
+      { role: "system", content: `You edit a ${c.kind} document. Apply the user's instruction and output ONLY the complete revised document, with no commentary and no code fences. Change nothing else.` },
+      { role: "user", content: `Document:\n${c.content}\n\nInstruction: ${instruction}` },
+    ] });
+    const out = r.text.replace(/^```[\w-]*\n/, "").replace(/\n```\s*$/, "").trim();
+    const lenOk = out.length > 0 && out.length > c.content.length * 0.4 && out.length < c.content.length * 3 + 400;
+    if (lenOk) {
+      const next = out + (c.content.endsWith("\n") && !out.endsWith("\n") ? "\n" : "");
+      if (next === c.content) return { canvas: c, ops: [], summary: "No change was needed.", attempts: 3, changed: false };
+      saveVersion(id, next, `Rewrite: ${instruction}`.slice(0, 140));
+      return { canvas: getCanvas(id)!, ops: [{ op: "set", text: next }], summary: "Rewrote the document (structured edits were not usable).", attempts: 3, changed: true };
+    }
+  } catch (e: any) { if (e?.name === "AbortError") throw e; }
   throw Object.assign(new Error(`The model's edits could not be applied: ${last.slice(0, 2).join("; ")}.`), { fix: "Try a more specific instruction, or select the text you want changed.", status: 422 });
 }
 

@@ -35,7 +35,6 @@ export function tierFor(memoryGb: number): Tier {
   return t.find((x) => memoryGb >= x.minGb && memoryGb < x.maxGb) ?? t[0] ?? { minGb: 0, maxGb: 9999, label: "unknown", chat: [], code: [], vision: [], embed: [] };
 }
 export async function loadedLocalModels(): Promise<{ name: string; sizeGb: number }[]> {
-  if (cfg.OPENMAX_STUB) return [];
   try {
     const r = await fetch(`${cfg.OLLAMA_URL}/api/ps`, { signal: AbortSignal.timeout(2000) });
     const j: any = await r.json();

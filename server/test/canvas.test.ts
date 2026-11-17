@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { freshEnv } from "./helpers.js";
 import { applyPatch, parseOps } from "../src/shared/patch.js";
 import { createCanvas, editWithInstruction, getCanvas, listVersions, restoreVersion, saveContent, suggest, transform, validateSuggestions } from "../src/modules/canvas/canvas.js";
-import { setStubHandler } from "../src/providers/stub.js";
+import { setStubHandler } from "./fake.js";
 
 const DOC = "# Title\n\nHello world.\nThis is a test.\nBye.";
 
@@ -74,9 +74,18 @@ describe("model-driven editing", () => {
     setStubHandler((req) => { n++; seenFeedback = req.messages.at(-1)!.content; return JSON.stringify(n === 1 ? { ops: [{ op: "replace", find: "does not exist", replace: "x" }] } : { summary: "ok", ops: [{ op: "append", text: "The end." }] }); });
     const r = await editWithInstruction(c.id, "add an ending");
     expect(r.attempts).toBe(2); expect(seenFeedback).toMatch(/could not be applied/); expect(r.canvas.content.endsWith("The end.")).toBe(true);
-    setStubHandler(() => '{"ops":[{"op":"delete","find":"zzz"}]}');
+    setStubHandler((req) => (req.json ? '{"ops":[{"op":"delete","find":"zzz"}]}' : ""));
     await expect(editWithInstruction(c.id, "x?")).rejects.toMatchObject({ status: 422, fix: expect.stringContaining("specific") });
     expect(getCanvas(c.id)!.version).toBe(2);
+  });
+  it("falls back to a full rewrite when a weak model cannot produce usable ops", async () => {
+    const c = createCanvas({ title: "Notes", content: "# Plan\n\nWe ship on Friday.\n" });
+    setStubHandler((req) => (req.json ? '{"ops":["append","text"]}' : "# Plan\n\nWe ship on Monday.\n"));
+    const r = await editWithInstruction(c.id, "Change Friday to Monday");
+    expect(r.changed).toBe(true); expect(r.canvas.content).toBe("# Plan\n\nWe ship on Monday.\n"); expect(r.summary).toMatch(/Rewrote/);
+    expect((listVersions(c.id) as any[])[0].note).toMatch(/^Rewrite:/);
+    setStubHandler((req) => (req.json ? "{}" : "x"));
+    await expect(editWithInstruction(c.id, "make it longer please")).rejects.toMatchObject({ status: 422 }); // a 1-char "document" is rejected, not saved
   });
   it("selection is passed to the model; no-op edits do not create versions", async () => {
     const c = createCanvas({ title: "N", content: DOC }); let user = "";

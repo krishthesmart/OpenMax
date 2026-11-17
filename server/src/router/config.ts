@@ -14,7 +14,6 @@ export const RouterConfigSchema = z.object({
   lanes: z.record(z.string(), refs),
   paidLanes: z.record(z.string(), refs).default({}),
   think: z.object({ candidates: refs, shortExtra: refs.default([]), paidExtra: refs.default([]) }),
-  image: z.array(z.string()).default(["mock"]),
   localDefault: z.string(),
 });
 export type RouterConfig = z.infer<typeof RouterConfigSchema>;

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { freshEnv } from "./helpers.js";
 import { estimateThink, judgePrompt, parseVerdict, runThink, thinkCandidates } from "../src/modules/think.js";
 import { chatTurn, listMessages } from "../src/modules/chat.js";
-import { setStubHandler, stubFail } from "../src/providers/stub.js";
+import { setStubHandler, stubFail } from "./fake.js";
 import * as L from "../src/providers/limits.js";
 import { getDb } from "../src/db.js";
 

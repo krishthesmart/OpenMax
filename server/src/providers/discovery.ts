@@ -5,7 +5,6 @@ import { complete } from "./llm.js";
 import { ProviderError, splitRef, type ProviderDef } from "./types.js";
 import { allRefs, getRouterConfig } from "../router/config.js";
 import { record429 } from "./limits.js";
-import { listStubModels } from "./stubModels.js";
 
 export interface DiscoveredModel { id: string; ctx?: number; vision?: boolean; tools?: boolean; kind: "chat" | "embedding" | "image" | "audio" | "other"; sizeB?: number }
 
@@ -51,7 +50,6 @@ export const getCatalog = () => Object.fromEntries(catalog);
 export const getCatalogFor = (provider: string) => catalog.get(provider) ?? [];
 
 async function listModels(p: ProviderDef): Promise<DiscoveredModel[]> {
-  if (cfg.OPENMAX_STUB) return listStubModels(p.id);
   const url = p.dialect === "ollama" ? `${p.baseUrl()}/api/tags` : `${p.baseUrl()}/models`;
   const headers: Record<string, string> = {};
   if (p.dialect === "anthropic") { headers["x-api-key"] = p.apiKey(); headers["anthropic-version"] = "2023-06-01"; }

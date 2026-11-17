@@ -1,12 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
-import { cfg, dataPath } from "../../config.js";
+import { ROOT, cfg, dataPath } from "../../config.js";
 import { OPS, type MediaBackend, type MediaOutput, type Op, type OpSupport, type RunCtx } from "./types.js";
 
 const wfFile = (op: Op) => dataPath("workflows", `${op}.json`);
 // falls back to the repo default if DATA_DIR has none (see readJson); try both explicitly
 const wfPath = (op: Op): string | undefined => {
-  for (const p of [wfFile(op), path.join(process.cwd(), "data", "workflows", `${op}.json`)]) if (fs.existsSync(p)) return p;
+  for (const p of [wfFile(op), path.join(ROOT, "data", "workflows", `${op}.json`)]) if (fs.existsSync(p)) return p;
   return undefined;
 };
 
@@ -66,7 +66,7 @@ export const comfyBackend: MediaBackend = {
         const h = await fetch(`${cfg.COMFY_URL}/history/${prompt_id}`, { signal: ctx.signal }).then((x) => x.json()).catch(() => ({}));
         if (h[prompt_id]) { hist = h[prompt_id]; if (hist.status?.status_str === "error") throw new Error("ComfyUI reported an error while running the workflow."); if (hist.outputs && Object.keys(hist.outputs).length) break; }
         ctx.progress((i + Math.min(0.9, (Date.now() - t0) / 120000)) / ctx.seeds.length, "Generating…");
-        await new Promise((res) => setTimeout(res, 1000));
+        await new Promise((res) => setTimeout(res, Date.now() - t0 < 10_000 ? 300 : 1000)); // poll quickly at first, then back off
       }
       const files: any[] = Object.values(hist.outputs).flatMap((o: any) => [...(o.images ?? []), ...(o.gifs ?? []), ...(o.videos ?? [])]).filter((f: any) => f.type !== "temp");
       if (!files.length) throw new Error("ComfyUI finished but produced no output files. Does the workflow end in SaveImage / a video save node?");

@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { freshEnv } from "./helpers.js";
 import { dedupeResults, normalizeUrl, pool, runResearch } from "../src/modules/research.js";
-import { setStubHandler } from "../src/providers/stub.js";
-import { setStubPages, setStubSearch } from "../src/modules/search.js";
+import { setStubHandler } from "./fake.js";
+import { setStubSearch } from "./fake.js";
 import { getDb } from "../src/db.js";
 
 const collect = async (o: any) => { const ev: { event: string; data: any }[] = []; for await (const e of runResearch(o)) ev.push(e); return ev; };
@@ -32,7 +32,6 @@ describe("research pipeline", () => {
   beforeEach(() => {
     freshEnv();
     setStubSearch((q) => [1, 2, 3, 4].map((i) => ({ title: `${q} result ${i}`, url: `https://site${i}.test/${encodeURIComponent(q)}`, snippet: `snippet ${i}` })));
-    setStubPages((u) => `Page text for ${u}`);
   });
   it("plans, searches in parallel, fetches, streams a cited answer, drops bogus citations, suggests follow-ups, persists", async () => {
     const seenQueries: string[] = [];

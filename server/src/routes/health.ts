@@ -25,7 +25,7 @@ export async function healthPayload() {
   const [search, local, media] = await Promise.all([searchStatus(), loadedLocalModels(), mediaStatus()]);
   const hw = detectHardware();
   return {
-    ok: true, version: "0.1.0", stub: cfg.OPENMAX_STUB, paidEnabled: cfg.ENABLE_PAID, freeCloud: cfg.ALLOW_FREE_CLOUD,
+    ok: true, version: "0.1.0", paidEnabled: cfg.ENABLE_PAID, freeCloud: cfg.ALLOW_FREE_CLOUD,
     providers, search, media, gpu: hw.gpu, hardware: { ...hw, recommended: tierFor(hw.memoryGb) },
     localModels: local, mcp: getMcpStatuses(), lastTest: lastTest?.at ?? null,
     lanes: Object.keys(getRouterConfig().lanes).length, budget: cfg.ENABLE_PAID ? budgetState() : null,

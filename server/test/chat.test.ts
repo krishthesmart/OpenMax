@@ -8,7 +8,7 @@ import { hashEmbed } from "../src/modules/embeddings.js";
 import { chatTurn, createConv, listMessages, artifactsFor, searchConvs, pathTo } from "../src/modules/chat.js";
 import { saveGem } from "../src/modules/gems.js";
 import { extractRememberRequest, listMemories, pickTools, recallMemories, saveMemory, setMemoryUrl, setMcpFactoryForTest } from "../src/modules/memory.js";
-import { setStubHandler } from "../src/providers/stub.js";
+import { setStubHandler } from "./fake.js";
 import { saveAttachment } from "../src/modules/attachments.js";
 import { setConfigForTest } from "../src/config.js";
 
@@ -133,7 +133,7 @@ describe("chat turn", () => {
   it("includes history and memories in the prompt; 'remember that' saves a memory", async () => {
     await saveMemory("The user is called Sam");
     let sys = "";
-    setStubHandler((req, p) => { if (p !== "ollama") sys = req.messages[0]!.content; return "ok"; });
+    setStubHandler((req, p) => { if (p !== "ollama" && /You are OpenMax/.test(req.messages[0]!.content)) sys = req.messages[0]!.content; return "ok"; });
     const e1 = await run({ text: "Remember that I use Linux." });
     expect(names(e1)).toContain("memory");
     expect(sys).toContain("The user is called Sam");
@@ -153,7 +153,7 @@ describe("chat turn", () => {
   });
   it("realtime questions search the web first and offer numbered sources", async () => {
     let sys = "";
-    setStubHandler((req) => { sys = req.messages[0]!.content; return "Answer [1] and [7]."; });
+    setStubHandler((req) => { if (/You are OpenMax/.test(req.messages[0]!.content)) sys = req.messages[0]!.content; return "Answer [1] and [7]."; });
     const ev = await run({ text: "what is the latest news today?" });
     expect(sys).toContain("Live web results");
     expect(ev.find((e) => e.event === "route")!.data.needsSearch).toBe(true);
@@ -173,7 +173,7 @@ describe("chat turn", () => {
     expect(ev2.find((e) => e.event === "route")!.data.model.startsWith("ollama:")).toBe(false);
   });
   it("surfaces needsCloudOverride when private content has no local model", async () => {
-    setConfigForTest({ OPENMAX_STUB: false, OLLAMA_URL: "http://127.0.0.1:1", GROQ_API_KEY: "k" });
+    setConfigForTest({ OLLAMA_URL: "http://127.0.0.1:1", GROQ_API_KEY: "k" });
     const conv = createConv({ private: true });
     const ev = await run({ conversationId: conv.id, text: "hello there friend" });
     // ollama is "local" so it is enabled; the call itself fails and is reported with a fix

@@ -59,6 +59,7 @@ export async function* runThink(opts: RouteOptions): AsyncGenerator<RouteEvent &
   const cls = opts.pre ?? (await classify({ messages: opts.messages, attachmentKinds: opts.attachmentKinds, private: opts.private, allowCloud: opts.allowCloud, signal: opts.signal }));
   const short = question.length < 600 && cls.task !== "code";
   let refs = thinkCandidates({ short, localOnly, paid: paidAllowed() });
+  if (!refs.length && !localOnly) refs = thinkCandidates({ short, localOnly: true, paid: false }); // no cloud provider is available: draft with the local model instead
   const temps: (number | undefined)[] = refs.map(() => undefined);
   if (refs.length === 1) { refs = [refs[0]!, refs[0]!]; temps.splice(0, 2, 0.3, 0.9); } // one model available: sample it twice
   if (!refs.length) { yield* (await import("../router/router.js")).runRouted({ ...opts, pre: cls }) as AsyncGenerator<RouteEvent & { type: string }>; return; }
