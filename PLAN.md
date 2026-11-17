@@ -17,7 +17,7 @@ Gate for every phase: `npm run typecheck && npm test && npm run build` pass, the
 - [x] 3. Chat: conversations, search, auto-titles, stop, regenerate, edit-and-resend, branching; memories
       (local table or MemoryOS over MCP); artifacts panel; Gems (instructions, pinned lane/model, knowledge RAG
       with citations, starters, private); attachments (images, PDF, audio→STT); voice mode (PTT → STT → TTS)
-- [ ] 4. Research: plan → parallel search → dedupe → fetch → (deep) gap round → cited synthesis, step log, follow-ups
+- [x] 4. Research: plan → parallel search → dedupe → fetch → (deep) gap round → cited synthesis, step log, follow-ups
 - [ ] 5. Code: workspace tree with path-escape protection, Monaco, explain/fix/refactor/tests/docs/custom →
       ```file block → diff view → Apply/Reject
 - [ ] 6. Studio: mock / comfy / fal / free-provider image backends, t2i/i2v/t2v/v2v/edit, ~18 presets, controls,

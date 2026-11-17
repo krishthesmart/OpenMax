@@ -2,3 +2,4 @@
 export {};
 import "./router.js";
 import "./chat.js";
+import "./research.js";

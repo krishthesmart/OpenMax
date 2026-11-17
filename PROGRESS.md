@@ -22,5 +22,10 @@ Use Node 22: `export PATH=~/.nvm/versions/node/v22.22.2/bin:$PATH` (native modul
 - Verified: typecheck, 90 tests, build, browser check of chat against the stub server.
 - Not verified live: real STT/TTS, MemoryOS against a real server (tested with an injected MCP client), real embeddings.
 
+## Phase 4 — done
+- Research: plan (2–5 queries) → parallel search → URL/title dedupe → page fetch (pool of 5, snippet fallback) → deep gap round → cited streaming synthesis
+  (invalid [n] stripped) → follow-ups; persisted history; live step log + source cards UI.
+- Verified: typecheck, 97 tests (stub search/pages), build. Not verified live against real SearXNG.
+
 ## Known gaps
 (none yet)

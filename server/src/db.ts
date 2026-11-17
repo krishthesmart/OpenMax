@@ -74,6 +74,9 @@ const MIGRATIONS: string[] = [
    CREATE TABLE IF NOT EXISTS attachments (
      id TEXT PRIMARY KEY, name TEXT NOT NULL, mime TEXT NOT NULL, kind TEXT NOT NULL, size INTEGER NOT NULL,
      path TEXT NOT NULL, text_path TEXT, pages TEXT, note TEXT, created_at INTEGER NOT NULL);`,
+  `CREATE TABLE IF NOT EXISTS research (
+     id TEXT PRIMARY KEY, query TEXT NOT NULL, deep INTEGER NOT NULL DEFAULT 0, answer TEXT NOT NULL DEFAULT '',
+     sources TEXT NOT NULL DEFAULT '[]', steps TEXT NOT NULL DEFAULT '[]', followups TEXT NOT NULL DEFAULT '[]', model TEXT, created_at INTEGER NOT NULL);`,
 ];
 
 export function openDb(file?: string): DB {
