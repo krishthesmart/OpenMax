@@ -3,6 +3,7 @@ import { Layout } from "./components/Layout";
 import { Settings } from "./pages/Settings";
 import { Chat } from "./pages/Chat";
 import { Research } from "./pages/Research";
+import { Canvas } from "./pages/Canvas";
 import { Notebook } from "./pages/Notebook";
 import { Studio } from "./pages/Studio";
 import { Code } from "./pages/Code";
@@ -17,6 +18,7 @@ export default function App() {
         <Route path="/chat" element={<Chat />} />
         <Route path="/chat/:id" element={<Chat />} />
         <Route path="/research" element={<Research />} />
+        <Route path="/canvas" element={<Canvas />} />
         <Route path="/notebook" element={<Notebook />} />
         <Route path="/studio" element={<Studio />} />
         <Route path="/code" element={<Code />} />

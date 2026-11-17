@@ -24,7 +24,7 @@ Gate for every phase: `npm run typecheck && npm test && npm run build` pass, the
       job queue + GPU scheduler, gallery, remix, delete; Storybook (10 pages → PDF)
 - [x] 7. Notebook: sources (PDF/URL/text/YouTube), grounded chat with citations, audio overview (script → TTS →
       ffmpeg MP3 + chapters), study guide/FAQ/timeline, quiz + flashcards (SM-2), mind map, slides (.pptx)
-- [ ] 8. Canvas: doc/code editor beside chat, structured patch ops, inline suggestions, length/tone, versions,
+- [x] 8. Canvas: doc/code editor beside chat, structured patch ops, inline suggestions, length/tone, versions,
       restore, live HTML/React preview
 - [ ] 9. Agent: tool loop (≤25 steps) with web_search, fetch_page, Playwright (isolated profile), sandboxed files,
       SMTP, ICS calendar, memory; approval gates enforced in code; action log + screenshots; cron schedules;

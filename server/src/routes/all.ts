@@ -6,3 +6,4 @@ import "./research.js";
 import "./code.js";
 import "./studio.js";
 import "./notebook.js";
+import "./canvas.js";

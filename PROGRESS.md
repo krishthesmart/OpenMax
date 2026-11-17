@@ -48,5 +48,11 @@ Use Node 22: `export PATH=~/.nvm/versions/node/v22.22.2/bin:$PATH` (native modul
 - Verified: typecheck, 148 tests, build. NOTE: this Mac's /usr/local/bin/ffmpeg is an Intel binary ("Bad CPU type"), so the ffmpeg encode path (MP3 + embedded chapters)
   was NOT exercised here; the WAV fallback is tested. Not verified live: YouTube transcript fetch, real TTS voices.
 
+## Phase 8 — done
+- Canvas: structured patch ops (replace/insert/delete/replace_lines/append/set; atomic, exact-unique matching, actionable errors), model-driven edit with one
+  feedback retry, inline suggestions (validated, accept/reject, never auto-applied), length/tone/reading-level transforms on selection or whole doc, versions + restore,
+  Monaco editor + live sandboxed preview for HTML/React/SVG/Markdown, "Open in Canvas" from chat artifacts.
+- Verified: typecheck, 160 tests, build.
+
 ## Known gaps
 (none yet)

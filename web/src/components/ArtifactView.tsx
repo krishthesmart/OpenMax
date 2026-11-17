@@ -29,7 +29,7 @@ export function previewDoc(a: Pick<ParsedArtifact, "kind" | "content">): string 
   return undefined;
 }
 
-export function ArtifactView({ versions, title, kind, lang, streaming }: { versions: string[]; title: string; kind: ParsedArtifact["kind"]; lang?: string; streaming?: boolean }) {
+export function ArtifactView({ versions, title, kind, lang, streaming, onCanvas }: { versions: string[]; title: string; kind: ParsedArtifact["kind"]; lang?: string; streaming?: boolean; onCanvas?: (content: string) => void }) {
   const [vi, setVi] = useState<number | null>(null);
   const [tab, setTab] = useState<"preview" | "code">("preview");
   const idx = vi ?? versions.length - 1;
@@ -51,6 +51,7 @@ export function ArtifactView({ versions, title, kind, lang, streaming }: { versi
           {canPreview && <><button className={`btn !py-0.5 ${tab === "preview" ? "btn-primary" : ""}`} onClick={() => setTab("preview")}>Preview</button><button className={`btn !py-0.5 ${tab === "code" ? "btn-primary" : ""}`} onClick={() => setTab("code")}>Code</button></>}
           <button className="btn !py-0.5" onClick={() => navigator.clipboard.writeText(content)}>Copy</button>
           <button className="btn !py-0.5" onClick={download}>Download</button>
+          {onCanvas && !streaming && <button className="btn btn-primary !py-0.5" onClick={() => onCanvas(content)}>Open in Canvas</button>}
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-auto bg-bg">

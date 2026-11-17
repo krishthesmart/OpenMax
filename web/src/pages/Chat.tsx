@@ -301,7 +301,7 @@ export function Chat() {
             <select className="input !w-auto !py-1" value={openArt.key} onChange={(e) => setArtKey(e.target.value)}>{arts.map((a) => <option key={a.key} value={a.key}>{a.title}</option>)}</select>
             <button className="btn btn-ghost ml-auto" onClick={() => setArtKey(null)}>✕</button>
           </div>
-          <div className="min-h-0 flex-1"><ArtifactView key={openArt.key} versions={openArt.versions} title={openArt.title} kind={openArt.kind} lang={openArt.lang} streaming={openArt.streaming} /></div>
+          <div className="min-h-0 flex-1"><ArtifactView key={openArt.key} versions={openArt.versions} title={openArt.title} kind={openArt.kind} lang={openArt.lang} streaming={openArt.streaming} onCanvas={async (c) => { const r = await api.post("/api/canvas", { title: openArt.title, kind: openArt.kind, content: c }); nav(`/canvas?open=${r.canvas.id}`); }} /></div>
         </aside>
       )}
     </div>
