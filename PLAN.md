@@ -7,11 +7,11 @@ Gate for every phase: `npm run typecheck && npm test && npm run build` pass, the
 
 ## Phase checklist
 
-- [ ] 1. Scaffold (npm workspaces: server + web), config (.env + zod), SQLite DB + migrations + sqlite-vec,
+- [x] 1. Scaffold (npm workspaces: server + web), config (.env + zod), SQLite DB + migrations + sqlite-vec,
       provider registry (free + paid-hidden + stub), LLM interface (openai-compatible / anthropic / ollama dialects,
       stream / complete / completeJSON, tool calls + JSON-action fallback), model discovery + 1-token pings,
       `GET /api/health`, `POST /api/providers/test`
-- [ ] 2. Router: heuristic classifier + groq LLM classifier, lanes from data/router.json, fallback on error/429,
+- [x] 2. Router: heuristic classifier + groq LLM classifier, lanes from data/router.json, fallback on error/429,
       token buckets + cooldowns + 80% cap warnings, privacy rule, modes (auto/local-first/cost-saver/manual),
       route SSE event, decision log, `/api/router/{config,explain,stats}`, /router page (lane editor + stats)
 - [ ] 3. Chat: conversations, search, auto-titles, stop, regenerate, edit-and-resend, branching; memories

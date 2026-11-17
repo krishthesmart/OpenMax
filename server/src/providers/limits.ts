@@ -60,10 +60,27 @@ export function snapshot(provider: string) {
   const s = st(provider);
   return { cooldownSec: cooldownRemaining(provider), count429: s.count429, requests: s.reqBucket, tokens: s.tokBucket, lastError: s.lastError };
 }
-export function resetLimits() { states.clear(); }
+export function resetLimits() { states.clear(); windows.clear(); }
 
 /** Percent of known free-tier daily cap used (0..100+). */
 export function capPercent(used: number, cap: number | undefined): number | undefined {
   return cap && cap > 0 ? Math.round((used / cap) * 1000) / 10 : undefined;
 }
 export const nearCap = (pct: number | undefined) => pct !== undefined && pct >= 80;
+
+/** Conservative requests-per-minute used only until response headers tell us better. */
+export const DEFAULT_RPM: Record<string, number> = { groq: 25, google: 8, nvidia: 30, openrouter: 15 };
+const windows = new Map<string, number[]>();
+/** Reserve a request slot. False means this provider's per-minute window is full (skip to the next lane entry). */
+export function tryAcquire(provider: string): boolean {
+  const s = st(provider);
+  if (cooldownRemaining(provider) > 0) return false;
+  const rpm = s.reqBucket.limit === undefined ? DEFAULT_RPM[provider] : undefined;
+  if (!rpm) return true;
+  const t = clock();
+  const w = (windows.get(provider) ?? []).filter((x) => t - x < 60_000);
+  if (w.length >= rpm) { windows.set(provider, w); return false; }
+  w.push(t); windows.set(provider, w);
+  return true;
+}
+export const resetWindows = () => windows.clear();

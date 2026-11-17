@@ -32,3 +32,12 @@ Judgement calls made while building, newest at the bottom.
     PNG/MP4/WebM.
 12. **Single port** in production: Fastify serves `web/dist` and `/api/*` on `PORT` (8787). In dev, Vite proxies
     `/api` to the server.
+13. **Attachments are local-only by default** (spec: "private Gems, private Notebooks and attachments go local-only unless I
+    override per message"). With no local vision model the router returns a fix-it error and the chat UI offers a one-click
+    "send to cloud for this message" override. Private content also never reaches the cloud *classifier*.
+14. **Modes.** auto = lane order (paid flagships first when enabled and under budget); local-first = Ollama refs first, cloud as
+    fallback; cost-saver = never paid, Ollama first for quick/creative; manual:`<ref>` = exactly that model, no fallback.
+15. **Fallback only before the first token.** A failure mid-stream is reported, not retried on another model (it would duplicate
+    output). Cooling-down providers and full per-minute windows are skipped, not waited on.
+16. **Dead refs** (failed last "Test providers") are moved to the end of a lane rather than removed, so a transient failure
+    never hard-disables a model.
