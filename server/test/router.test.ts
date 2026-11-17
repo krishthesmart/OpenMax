@@ -6,6 +6,7 @@ import { isLocalOnly } from "../src/router/privacy.js";
 import { setStubHandler, stubFail } from "./fake.js";
 import * as L from "../src/providers/limits.js";
 import { getDb } from "../src/db.js";
+import { discoverAll } from "../src/providers/discovery.js";
 import { routerStats } from "../src/routes/router.js";
 
 const refs = (s: ReturnType<typeof selectCandidates>) => s.candidates.map((c) => c.ref);
@@ -35,7 +36,9 @@ describe("lane selection", () => {
     expect(refs(selectCandidates({ task: "code", mode: "cost-saver" }))).not.toContain("anthropic:opus");
     expect(refs(selectCandidates({ task: "code", mode: "manual:groq:large" }))).toEqual(["groq:large"]);
   });
-  it("Ollama is the fallback for everything: every text lane ends with the local default, vision lanes keep their vision model", () => {
+  it("the local fallback is appended to every text lane only when Ollama really has models; vision lanes never get a text model", async () => {
+    expect(refs(selectCandidates({ task: "research", mode: "auto" }))).not.toContain("ollama:small"); // no discovery yet: nothing is assumed
+    await discoverAll(); // the fixture Ollama lists a model
     for (const task of ["research", "realtime", "creative", "agentic", "long-context", "quick"] as const) expect(refs(selectCandidates({ task, mode: "auto" })).at(-1)).toBe("ollama:small");
     expect(refs(selectCandidates({ task: "research", mode: "auto" })).filter((r) => r === "ollama:small")).toHaveLength(1);
     expect(refs(selectCandidates({ task: "vision", mode: "auto" }))).not.toContain("ollama:small");
