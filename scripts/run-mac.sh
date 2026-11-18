@@ -12,13 +12,6 @@ node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 22 ? 0 : 1)
 [ -f .env ] || { cp .env.example .env; chmod 600 .env; echo "Created .env from .env.example (add your free API keys, or use the setup wizard in the UI)."; }
 [ -d node_modules ] || npm install
 
-# Ollama: start it if installed and not running
-if command -v ollama >/dev/null 2>&1; then
-  curl -fsS http://127.0.0.1:11434/api/tags >/dev/null 2>&1 || { echo "Starting Ollama…"; (ollama serve >/tmp/ollama.log 2>&1 &) ; sleep 2; }
-else
-  echo "Ollama not found (optional): only needed if you want private/local-only chats. OpenMax runs on your cloud API keys without it."
-fi
-
 # Web search: start the native SearXNG (installed by ./scripts/run-searxng.sh install) if it is not already running
 if [ -d .services/searxng/searx ] && ! curl -fsS http://127.0.0.1:8080/healthz >/dev/null 2>&1; then
   echo "Starting SearXNG…"; (nohup ./scripts/run-searxng.sh >/tmp/searxng.log 2>&1 &); sleep 4

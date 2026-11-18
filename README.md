@@ -20,7 +20,7 @@ It is original code written from scratch. It is not affiliated with, and does no
 
 ## Quick start (your four free keys)
 
-You need Node 22+ and, optionally, [Ollama](https://ollama.com) for local models.
+You need Node 22+. No local model is required: OpenMax runs on your cloud API keys.
 
 ```bash
 git clone <this repo> openmax && cd openmax
@@ -97,7 +97,7 @@ Paid providers (Anthropic, OpenAI, xAI/Grok, Google paid key, DeepSeek, Meta, pa
 All model IDs live in two files, never in code: `data/router.json` (cloud lanes, classifier, judge, titles, embeddings, Think candidates, paid lanes) and `data/local-models.json` (Ollama recommendations per memory tier).
 
 - **In the UI:** the **Router** page. Reorder, add or remove models per lane, click **Test providers** to mark dead models, use **apply suggestion** to adopt picks derived from your live model catalog, then **Save lanes**. Use **Explain** to see how any prompt would be classified and routed.
-- **By hand:** edit `data/router.json`. A ref is `provider:model`, for example `groq:llama-3.3-70b-versatile` or `ollama:qwen3:8b`. The first live entry in a lane wins; errors and 429s fall through to the next. Every text lane automatically ends with `localDefault` (Ollama) as a last resort.
+- **By hand:** edit `data/router.json`. A ref is `provider:model`, for example `groq:llama-3.3-70b-versatile`. The first live entry in a lane wins; errors and 429s fall through to the next. Every text lane automatically ends with `localDefault` (Ollama) as a last resort.
 - **Per message:** the mode picker in the header: Auto, Local-first, Cost-saver, or pin one specific model. Clicking the route chip on any answer re-runs it with a different model.
 
 Tasks: `code`, `reasoning`, `research`, `realtime`, `creative`, `vision`, `multimodal`, `long-context`, `agentic`, `quick`.

@@ -19,7 +19,7 @@ const letters = "ABCDEFGH";
 export function thinkCandidates(o: { short?: boolean; localOnly?: boolean; paid?: boolean }): string[] {
   const rc = getRouterConfig(); const statuses = (() => { try { return getRefStatuses(); } catch { return {}; } })();
   let refs = [...rc.think.candidates, ...(o.short ? rc.think.shortExtra : []), ...(o.paid ? rc.think.paidExtra : [])];
-  if (o.localOnly) refs = [rc.localDefault, ...Object.keys(statuses).filter((r) => splitRef(r).provider === "ollama")];
+  if (o.localOnly) refs = [...(rc.localDefault ? [rc.localDefault] : []), ...Object.keys(statuses).filter((r) => splitRef(r).provider === "ollama")];
   const ok: string[] = [];
   for (const r of [...new Set(refs)]) {
     const p = getProvider(splitRef(r).provider);

@@ -37,17 +37,17 @@ export function selectCandidates(input: SelectInput): Selection {
       if (input.task === "quick" || input.task === "creative") refs = [...refs.filter((r) => tierOf(splitRef(r).provider) === "local"), ...refs.filter((r) => tierOf(splitRef(r).provider) !== "local")];
     }
     // Ollama is the fallback for everything: every lane ends with the local default (text lanes only; a text model cannot see images).
-    if (getCatalogFor("ollama").length > 0 && input.task !== "vision" && input.task !== "multimodal" && !refs.some((r) => tierOf(splitRef(r).provider) === "local")) refs = [...refs, rc.localDefault];
+    if (rc.localDefault && getCatalogFor("ollama").length > 0 && input.task !== "vision" && input.task !== "multimodal" && !refs.some((r) => tierOf(splitRef(r).provider) === "local")) refs = [...refs, rc.localDefault];
     if (mode === "local-first") {
       const local = refs.filter((r) => tierOf(splitRef(r).provider) === "local");
-      refs = dedupe([...(local.length ? local : [rc.localDefault]), ...refs]);
+      refs = dedupe([...(local.length ? local : rc.localDefault ? [rc.localDefault] : []), ...refs]);
     }
   }
 
   if (input.localOnly) {
     const local = refs.filter((r) => tierOf(splitRef(r).provider) === "local");
     refs.filter((r) => !local.includes(r)).forEach((r) => skipped.push({ ref: r, reason: "privacy: local only" }));
-    refs = local.length ? local : [rc.localDefault];
+    refs = local.length ? local : rc.localDefault ? [rc.localDefault] : [];
   }
 
   const ok: Candidate[] = [], dead: Candidate[] = [];

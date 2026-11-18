@@ -14,7 +14,8 @@ export const RouterConfigSchema = z.object({
   lanes: z.record(z.string(), refs),
   paidLanes: z.record(z.string(), refs).default({}),
   think: z.object({ candidates: refs, shortExtra: refs.default([]), paidExtra: refs.default([]) }),
-  localDefault: z.string(),
+  /** Optional local model used only for private/local-only requests. Unset = cloud only. */
+  localDefault: z.string().nullable().optional(),
 });
 export type RouterConfig = z.infer<typeof RouterConfigSchema>;
 
@@ -43,6 +44,6 @@ export function allRefs(c: RouterConfig = getRouterConfig()): string[] {
   add(c.classifier); add(c.judge); add(c.titles); add(c.embeddings); add(c.toolProbe); add(c.stt);
   Object.values(c.lanes).forEach(add); Object.values(c.paidLanes).forEach(add);
   add(c.think.candidates); add(c.think.shortExtra); add(c.think.paidExtra);
-  set.add(c.localDefault);
+  if (c.localDefault) set.add(c.localDefault);
   return [...set];
 }

@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "note": "All model IDs live here. Refs are provider:model. Edit on the /router page or by hand; dead refs are marked after 'Test providers'. Cloud-first: no local model is required (Ollama is only used for private content if you have it).",
+  "note": "All model IDs live here. Refs are provider:model. Edit on the /router page or by hand; dead refs are marked after 'Test providers'. Cloud-first: no local model is required. Ollama is not used by default; set localDefault (e.g. ollama:llama3.2:1b) to enable a local model for private chats.",
   "classifier": [
     "groq:llama-3.1-8b-instant",
     "nvidia:nvidia/nemotron-3.5-bolt-e4b",
@@ -128,5 +128,5 @@
       "openai:gpt-5"
     ]
   },
-  "localDefault": "ollama:llama3.2:1b"
+  "localDefault": null
 }
